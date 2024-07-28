@@ -4,8 +4,9 @@ plugins {
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.jetbrainsCompose)
     alias(libs.plugins.compose.compiler)
+    alias(libs.plugins.ksp)
+    alias(libs.plugins.room)
     kotlin("plugin.serialization") version "2.0.0"
-    id("app.cash.sqldelight") version "2.0.0"
 }
 
 kotlin {
@@ -34,9 +35,12 @@ kotlin {
 
             api("io.github.qdsfdhvh:image-loader:1.8.2")
             // optional - Compose Multiplatform Resources Decoder
-             api("io.github.qdsfdhvh:image-loader-extension-compose-resources:1.8.2")
+            api("io.github.qdsfdhvh:image-loader-extension-compose-resources:1.8.2")
 
             implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.1")
+
+            implementation(libs.androidx.room.runtime)
+            implementation(libs.sqlite.bundled)
         }
         desktopMain.dependencies {
             api("io.github.qdsfdhvh:image-loader-extension-imageio:1.8.2")
@@ -46,12 +50,12 @@ kotlin {
     }
 }
 
-sqldelight {
-    databases {
-        create("Database") {
-            packageName.set("io.silv.hmm")
-        }
-    }
+dependencies {
+    ksp(libs.androidx.room.compiler)
+}
+
+room {
+    schemaDirectory("$projectDir/schemas")
 }
 
 compose.desktop {

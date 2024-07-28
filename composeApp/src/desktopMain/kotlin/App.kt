@@ -6,6 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -27,8 +28,10 @@ import androidx.compose.material.ExtendedFloatingActionButton
 import androidx.compose.material.FilterChip
 import androidx.compose.material.Icon
 import androidx.compose.material.IconButton
+import androidx.compose.material.IconToggleButton
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Scaffold
+import androidx.compose.material.Switch
 import androidx.compose.material.Text
 import androidx.compose.material.TopAppBar
 import androidx.compose.material.icons.Icons
@@ -43,20 +46,32 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import com.seiko.imageloader.rememberImagePainter
+import core.db.DB
+import core.db.ModEntity
 import dialog.CreateModDialog
 import dialog.SettingsDialog
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.asFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.launch
 import org.jetbrains.compose.ui.tooling.preview.Preview
+import java.io.File
 
 sealed interface Dialog {
     data object Settings: Dialog
     data object AddMod: Dialog
 }
+
+fun <T, E> Flow<T>.combineToPair(flow2: Flow<E>): Flow<Pair<T, E>> = this.combine(flow2) { a, b -> a to b }
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterialApi::class)
 @Composable
@@ -64,12 +79,17 @@ sealed interface Dialog {
 fun App() {
     MaterialTheme {
 
+        val scope = rememberCoroutineScope()
         val filters = remember { mutableStateListOf<String>() }
 
-        val characters by remember {
-            derivedStateOf {
-                val full = CharacterSync.stats.toList()
-                if (filters.isEmpty()) full else full.groupBy { it.first.element }.flatMap { if (it.key !in filters) emptyList() else it.value  }
+        val characters by produceState(emptyList()) {
+            CharacterSync.stats.combineToPair(snapshotFlow { filters.toList() }).collect { (chars, filters) ->
+                val full = chars.toList()
+                value = if (filters.isEmpty())
+                    full
+                else
+                    full.groupBy { it.first.element }
+                        .flatMap { if (it.key !in filters) emptyList() else it.value }
             }
         }
 
@@ -139,14 +159,16 @@ fun App() {
                 LazyVerticalGrid(
                     state = lazyGridState,
                     modifier = Modifier.fillMaxSize(),
-                    columns = GridCells.Adaptive(148.dp),
+                    columns = GridCells.Adaptive(248.dp),
                     contentPadding = paddingValues
                 ) {
                     if (syncActive) {
                         item(
                             span = { GridItemSpan(maxCurrentLineSpan) }
                         ) {
-                            CircularProgressIndicator(Modifier.size(64.dp))
+                            Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                                CircularProgressIndicator(Modifier.size(64.dp))
+                            }
                         }
                     }
                     items(characters) { (character, files) ->
@@ -159,7 +181,10 @@ fun App() {
                         ) {
                             CharacterCard(
                                 character = character,
-                                modifier = Modifier.fillMaxWidth().aspectRatio(3f / 4f).clickable { expanded = !expanded },
+                                modifier = Modifier.fillMaxWidth()
+                                    .padding(12.dp)
+                                    .aspectRatio(3f / 4f)
+                                    .clickable { expanded = !expanded },
                             )
                             AnimatedVisibility(expanded) {
                                 Column {
@@ -167,7 +192,17 @@ fun App() {
                                         Text("No mods")
                                     } else {
                                         files.forEach {
-                                            Text(it)
+                                            Row {
+                                                Text(
+                                                    text = it,
+                                                    maxLines = 1,
+                                                    modifier = Modifier.weight(1f)
+                                                )
+                                                Switch(
+                                                    checked = false,
+                                                    onCheckedChange = {},
+                                                )
+                                            }
                                         }
                                     }
                                 }
@@ -187,7 +222,22 @@ fun App() {
             Dialog.AddMod -> {
                 CreateModDialog(
                     onDismissRequest = dismiss,
-                    characters = derivedStateOf { characters.map { it.first } }.value
+                    characters = derivedStateOf { characters.map { it.first } }.value,
+                    createMod = { file, character ->
+                        dismiss()
+                        scope.launch(Dispatchers.IO) {
+                            try {
+                                val modFile = File(
+                                    CharacterSync.rootDir.path + File.separator + character.name + File.separator +
+                                            file.path.takeLastWhile { it.isWhitespace() || it.isLetter() || it.isDigit() }
+                                )
+                                file.copyTo(modFile, overwrite = true)
+                                CharacterSync.sync()
+                            } catch (e: Exception) {
+                                e.printStackTrace()
+                            }
+                        }
+                    }
                 )
             }
             Dialog.Settings -> {

@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.material.Card
 import androidx.compose.material.DropdownMenu
@@ -20,12 +19,10 @@ import androidx.compose.material.DropdownMenuItem
 import androidx.compose.material.Icon
 import androidx.compose.material.IconButton
 import androidx.compose.material.MaterialTheme
-import androidx.compose.material.Surface
 import androidx.compose.material.Text
 import androidx.compose.material.TextButton
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ArrowDropDown
-import androidx.compose.material.primarySurface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -33,9 +30,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.window.Dialog
 import com.seiko.imageloader.rememberImagePainter
 import core.model.Character
@@ -45,6 +40,7 @@ import java.io.File
 @Composable
 fun CreateModDialog(
     onDismissRequest: () -> Unit,
+    createMod: (dir: File, character: Character) -> Unit,
     characters: List<Character>,
 ) {
     Dialog(
@@ -107,6 +103,12 @@ fun CreateModDialog(
                     Text("Select mod folder")
                 }
                 Text(selectedDir?.path ?: "No directory selected")
+                TextButton(
+                    onClick = { selectedDir?.let { createMod(it, characters[selectedIndex]) } },
+                    enabled = selectedDir != null
+                ) {
+                    Text("Create")
+                }
             }
         }
     }
