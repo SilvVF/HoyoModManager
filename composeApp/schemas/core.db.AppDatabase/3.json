@@ -1,19 +1,13 @@
 {
   "formatVersion": 1,
   "database": {
-    "version": 2,
-    "identityHash": "bf786bc396827dfa9fca997bbbf8a0cc",
+    "version": 3,
+    "identityHash": "6ae5edddc657fe4836d8781507f35233",
     "entities": [
       {
         "tableName": "mod",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`file_name` TEXT NOT NULL, `id` INTEGER NOT NULL, `game` INTEGER NOT NULL, `character` TEXT NOT NULL, `enabled` INTEGER NOT NULL, PRIMARY KEY(`file_name`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER NOT NULL, `game` INTEGER NOT NULL, `character` TEXT NOT NULL, `file_name` TEXT NOT NULL, `enabled` INTEGER NOT NULL, PRIMARY KEY(`id`))",
         "fields": [
-          {
-            "fieldPath": "fileName",
-            "columnName": "file_name",
-            "affinity": "TEXT",
-            "notNull": true
-          },
           {
             "fieldPath": "id",
             "columnName": "id",
@@ -33,6 +27,12 @@
             "notNull": true
           },
           {
+            "fieldPath": "fileName",
+            "columnName": "file_name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
             "fieldPath": "enabled",
             "columnName": "enabled",
             "affinity": "INTEGER",
@@ -42,7 +42,7 @@
         "primaryKey": {
           "autoGenerate": false,
           "columnNames": [
-            "file_name"
+            "id"
           ]
         },
         "indices": [
@@ -54,6 +54,15 @@
             ],
             "orders": [],
             "createSql": "CREATE INDEX IF NOT EXISTS `index_mod_game` ON `${TABLE_NAME}` (`game`)"
+          },
+          {
+            "name": "index_mod_file_name",
+            "unique": false,
+            "columnNames": [
+              "file_name"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_mod_file_name` ON `${TABLE_NAME}` (`file_name`)"
           },
           {
             "name": "index_mod_enabled",
@@ -92,7 +101,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'bf786bc396827dfa9fca997bbbf8a0cc')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '6ae5edddc657fe4836d8781507f35233')"
     ]
   }
 }

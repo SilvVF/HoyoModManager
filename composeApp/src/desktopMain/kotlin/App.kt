@@ -7,12 +7,14 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
@@ -34,10 +36,12 @@ import androidx.compose.material.Scaffold
 import androidx.compose.material.Switch
 import androidx.compose.material.Text
 import androidx.compose.material.TopAppBar
+import androidx.compose.material.contentColorFor
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.Clear
+import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
@@ -56,15 +60,21 @@ import androidx.compose.ui.unit.dp
 import com.seiko.imageloader.rememberImagePainter
 import core.db.DB
 import core.db.ModEntity
+import core.model.Game
 import dialog.CreateModDialog
 import dialog.SettingsDialog
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.asFlow
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.onStart
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.ui.tooling.preview.Preview
 import java.io.File
+import kotlin.math.exp
 
 sealed interface Dialog {
     data object Settings: Dialog
@@ -81,9 +91,11 @@ fun App() {
 
         val scope = rememberCoroutineScope()
         val filters = remember { mutableStateListOf<String>() }
+        val syncTrigger = remember { Channel<Unit>() }
 
         val characters by produceState(emptyList()) {
-            CharacterSync.stats.combineToPair(snapshotFlow { filters.toList() }).collect { (chars, filters) ->
+            CharacterSync.stats.combineToPair(snapshotFlow { filters.toList() })
+                .collect { (chars, filters) ->
                 val full = chars.toList()
                 value = if (filters.isEmpty())
                     full
@@ -94,9 +106,12 @@ fun App() {
         }
 
         val syncActive by produceState(true) {
-            val job = CharacterSync.sync()
-            runCatching { job.join() }
-            value = false
+            syncTrigger.receiveAsFlow().onStart { emit(Unit) }.collect {
+                value = true
+                val job = CharacterSync.sync()
+                runCatching { job.join() }
+                value = false
+            }
         }
 
         var currentDialog by remember { mutableStateOf<Dialog?>(null) }
@@ -139,18 +154,68 @@ fun App() {
                 )
             },
             floatingActionButton = {
-                ExtendedFloatingActionButton(
-                    onClick = { currentDialog = Dialog.AddMod },
-                    icon = {
-                        Icon(
-                            imageVector = Icons.Outlined.Add,
-                            contentDescription = "Add"
-                        )
-                    },
-                    text = {
-                        Text("Add Mod")
-                    }
-                )
+                Row {
+                    var loading by remember { mutableStateOf(false) }
+
+                    ExtendedFloatingActionButton(
+                        onClick = {
+                            if (loading)
+                                return@ExtendedFloatingActionButton
+
+                            scope.launch(Dispatchers.IO) {
+                                loading = true
+                                val exportDir = File(DB.prefsDao.select()?.exportModDir ?: return@launch)
+
+                                val selected = DB.modDao.selectEnabledForGame(Game.Genshin.toByte())
+
+                                selected.forEach { mod ->
+                                    val modFile = File(CharacterSync.rootDir,mod.character + "\\" + mod.fileName)
+
+                                    modFile.copyRecursively(File(exportDir, mod.fileName), overwrite = true)
+                                }
+
+                                exportDir.listFiles()
+                                    ?.forEach {
+                                        if (it.name == "BufferValues" || it.extension == "exe")
+                                            return@forEach
+
+                                        if (it.name !in selected.map { it.fileName }) {
+                                            it.deleteRecursively()
+                                        }
+                                    }
+                            }.invokeOnCompletion { loading = false }
+                        },
+                        icon = {
+                            if (loading) {
+                                CircularProgressIndicator()
+                            } else {
+                                Icon(
+                                    imageVector = Icons.Outlined.Refresh,
+                                    contentDescription = "Generate"
+                                )
+                            }
+                        },
+                        backgroundColor = MaterialTheme.colors.secondary.copy(
+                            alpha = if(loading) 0.5f else 1f
+                        ),
+                        text = {
+                            Text("Generate")
+                        }
+                    )
+                    Spacer(Modifier.width(22.dp))
+                    ExtendedFloatingActionButton(
+                        onClick = { currentDialog = Dialog.AddMod },
+                        icon = {
+                            Icon(
+                                imageVector = Icons.Outlined.Add,
+                                contentDescription = "Add"
+                            )
+                        },
+                        text = {
+                            Text("Add Mod")
+                        }
+                    )
+                }
             },
         ) { paddingValues ->
             Box {
@@ -191,16 +256,32 @@ fun App() {
                                     if (files.isEmpty()) {
                                         Text("No mods")
                                     } else {
-                                        files.forEach {
+                                        files.forEach { file ->
+
+                                            val checked by produceState(false) {
+                                                DB.modDao.observeByFileName(file).collect {
+                                                    value = it?.enabled ?: false
+                                                }
+                                            }
+
                                             Row {
                                                 Text(
-                                                    text = it,
+                                                    text = file,
                                                     maxLines = 1,
                                                     modifier = Modifier.weight(1f)
                                                 )
                                                 Switch(
-                                                    checked = false,
-                                                    onCheckedChange = {},
+                                                    checked = checked,
+                                                    onCheckedChange = {
+                                                        scope.launch(Dispatchers.IO) {
+                                                            with(DB.modDao) {
+                                                                println(selectAllByGame(Game.Genshin.toByte()))
+                                                                selectByFileName(file)?.let { mod ->
+                                                                    update(mod.copy(enabled = it))
+                                                                }
+                                                            }
+                                                        }
+                                                    },
                                                 )
                                             }
                                         }
@@ -228,11 +309,10 @@ fun App() {
                         scope.launch(Dispatchers.IO) {
                             try {
                                 val modFile = File(
-                                    CharacterSync.rootDir.path + File.separator + character.name + File.separator +
-                                            file.path.takeLastWhile { it.isWhitespace() || it.isLetter() || it.isDigit() }
+                                    CharacterSync.rootDir.path + File.separator + character.name + File.separator + file.name
                                 )
-                                file.copyTo(modFile, overwrite = true)
-                                CharacterSync.sync()
+                                file.copyRecursively(modFile, overwrite = true)
+                                syncTrigger.send(Unit)
                             } catch (e: Exception) {
                                 e.printStackTrace()
                             }

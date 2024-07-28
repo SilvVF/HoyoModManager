@@ -1,4 +1,3 @@
-import androidx.compose.runtime.mutableStateMapOf
 import core.db.DB
 import core.db.ModEntity
 import core.model.Character
@@ -9,10 +8,6 @@ import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.runInterruptible
-import net.model.genshin.GiCharacter
-import okio.FileSystem
 import java.io.File
 
 object CharacterSync {
@@ -23,11 +18,12 @@ object CharacterSync {
     private val modDao = DB.modDao
 
     val elements = genshinApi.elements
-
     val rootDir = File(OS.getDataDir(), "mods")
 
     @OptIn(DelicateCoroutinesApi::class)
     fun sync(): Job = GlobalScope.launch(Dispatchers.IO) {
+
+        DB.modDao.clear()
 
         val newStats = mutableMapOf<Character, List<String>>()
 
@@ -54,34 +50,31 @@ object CharacterSync {
                 element = characterData.elementText,
             )
 
+            val modDirFiles = run {
+                val path = DB.prefsDao.select()?.exportModDir ?: return@run emptyList<File>()
+                File(path).listFiles()?.toList() ?: emptyList()
+            }
+
             newStats[character] = file.listFiles()
-                ?.onEach { updateMod(file, character) }
-                ?.mapNotNull { file -> file.name }
+                ?.onEach { updateMod(it, character, modDirFiles) }
+                ?.mapNotNull { it.name }
                 ?: emptyList()
         }
 
         stats.emit(newStats)
     }
 
-    private suspend fun updateMod(file: File, character: Character) {
-        val mod = modDao.selectByFileName(file.path)
-        if (mod != null) {
-            modDao.update(
-                id = mod.id,
+
+    private suspend fun updateMod(file: File, character: Character, modDirFiles: List<File>) {
+        println("updating or creating ${file.name} ${character.name}")
+        modDao.insert(
+            ModEntity(
+                id = character.id,
+                game = DB.GENSHIN,
                 character = character.name,
-                fileName = file.path,
-                enabled = null
+                fileName = file.name,
+                enabled = modDirFiles.map { it.name }.contains(file.name)
             )
-        } else {
-            modDao.insert(
-                ModEntity(
-                    id = character.id,
-                    game = DB.GENSHIN,
-                    character = character.name,
-                    fileName = file.name,
-                    enabled = false
-                )
-            )
-        }
+        )
     }
 }

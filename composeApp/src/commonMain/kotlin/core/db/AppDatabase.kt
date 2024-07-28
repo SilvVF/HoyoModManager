@@ -1,15 +1,19 @@
 package core.db
 
+import androidx.room.AutoMigration
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.room.migration.AutoMigrationSpec
+import androidx.room.migration.Migration
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import kotlinx.coroutines.Dispatchers
 import java.io.File
 
 @Database(
     entities = [ModEntity::class, Prefs::class],
-    version = 2
+    version = 1,
+    exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun modDao(): ModDao
@@ -29,7 +33,8 @@ object DB {
     val prefsDao by lazy { instance.prefsDao() }
 
     private fun getDatabaseBuilder(): RoomDatabase.Builder<AppDatabase> {
-        val dbFile = File(System.getProperty("java.io.tmpdir"), "hmm.db")
+        val dbFile = File(OS.getCacheDir(), "hmm.db")
+
         return Room.databaseBuilder<AppDatabase>(
             name = dbFile.absolutePath,
         )
@@ -39,10 +44,10 @@ object DB {
         builder: RoomDatabase.Builder<AppDatabase>
     ): AppDatabase {
         return builder
-            .fallbackToDestructiveMigrationOnDowngrade(true)
             .setDriver(BundledSQLiteDriver())
+            .fallbackToDestructiveMigration(true)
+            .fallbackToDestructiveMigrationOnDowngrade(true)
             .setQueryCoroutineContext(Dispatchers.IO)
             .build()
     }
-
 }

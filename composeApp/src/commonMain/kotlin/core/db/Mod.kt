@@ -9,14 +9,17 @@ import androidx.room.OnConflictStrategy
 import androidx.room.PrimaryKey
 import androidx.room.Query
 import androidx.room.Update
+import kotlinx.coroutines.flow.Flow
 
 @Entity(tableName = "mod")
 data class ModEntity(
-    @PrimaryKey val id: Int,
+    @PrimaryKey
+    @ColumnInfo(name = "file_name")
+    val fileName: String,
+    @ColumnInfo(name = "id") val id: Int,
     @ColumnInfo(name = "game", index = true) val game: Byte,
     @ColumnInfo(name = "character") val character: String,
-    @ColumnInfo(name = "file_name", index = true) val fileName: String,
-    @ColumnInfo(name = "enabled") val enabled: Boolean
+    @ColumnInfo(name = "enabled", index = true) val enabled: Boolean
 )
 
 data class ModUpdate(
@@ -29,11 +32,20 @@ data class ModUpdate(
 @Dao
 interface ModDao {
 
-    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(mod: ModEntity)
 
     @Delete
     suspend fun delete(mod: ModEntity)
+
+    @Query("DELETE FROM mod")
+    suspend fun clear()
+
+    @Query("SELECT * FROM mod WHERE game = :game")
+    fun observeByGame(game: Byte): Flow<List<ModEntity>>
+
+    @Query("SELECT * FROM mod WHERE file_name = :name LIMIT 1")
+    fun observeByFileName(name: String): Flow<ModEntity?>
 
     @Query("SELECT * FROM mod WHERE game = :game")
     suspend fun selectAllByGame(game: Byte): List<ModEntity>
@@ -41,12 +53,11 @@ interface ModDao {
     @Query("SELECT * FROM mod WHERE file_name = :name LIMIT 1")
     suspend fun selectByFileName(name: String): ModEntity?
 
+    @Update
+    suspend fun update(mod: ModEntity)
+
     @Query("""
-        UPDATE MOD SET 
-            character = COALESCE(character, :character), 
-            file_name = COALESCE(file_name, :fileName), 
-            enabled = COALESCE(enabled, :enabled)
-        WHERE id = :id
+        SELECT * FROM mod WHERE enabled AND game = :game 
     """)
-    suspend fun update(id: Int, character: String?, fileName: String?, enabled: Boolean?)
+    suspend fun selectEnabledForGame(game: Byte): List<ModEntity>
 }

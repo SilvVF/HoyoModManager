@@ -2,12 +2,18 @@
   "formatVersion": 1,
   "database": {
     "version": 1,
-    "identityHash": "32b92a7f936f1c1aa8451de2feff5c81",
+    "identityHash": "bf786bc396827dfa9fca997bbbf8a0cc",
     "entities": [
       {
         "tableName": "mod",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER NOT NULL, `game` INTEGER NOT NULL, `character` TEXT NOT NULL, `file_name` TEXT NOT NULL, `enabled` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`file_name` TEXT NOT NULL, `id` INTEGER NOT NULL, `game` INTEGER NOT NULL, `character` TEXT NOT NULL, `enabled` INTEGER NOT NULL, PRIMARY KEY(`file_name`))",
         "fields": [
+          {
+            "fieldPath": "fileName",
+            "columnName": "file_name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
           {
             "fieldPath": "id",
             "columnName": "id",
@@ -27,12 +33,6 @@
             "notNull": true
           },
           {
-            "fieldPath": "fileName",
-            "columnName": "file_name",
-            "affinity": "TEXT",
-            "notNull": true
-          },
-          {
             "fieldPath": "enabled",
             "columnName": "enabled",
             "affinity": "INTEGER",
@@ -42,7 +42,7 @@
         "primaryKey": {
           "autoGenerate": false,
           "columnNames": [
-            "id"
+            "file_name"
           ]
         },
         "indices": [
@@ -56,20 +56,43 @@
             "createSql": "CREATE INDEX IF NOT EXISTS `index_mod_game` ON `${TABLE_NAME}` (`game`)"
           },
           {
-            "name": "index_mod_file_name",
+            "name": "index_mod_enabled",
             "unique": false,
             "columnNames": [
-              "file_name"
+              "enabled"
             ],
             "orders": [],
-            "createSql": "CREATE INDEX IF NOT EXISTS `index_mod_file_name` ON `${TABLE_NAME}` (`file_name`)"
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_mod_enabled` ON `${TABLE_NAME}` (`enabled`)"
           }
         ]
+      },
+      {
+        "tableName": "Prefs",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`exportModDir` TEXT, `id` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+        "fields": [
+          {
+            "fieldPath": "exportModDir",
+            "columnName": "exportModDir",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        }
       }
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '32b92a7f936f1c1aa8451de2feff5c81')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'bf786bc396827dfa9fca997bbbf8a0cc')"
     ]
   }
 }

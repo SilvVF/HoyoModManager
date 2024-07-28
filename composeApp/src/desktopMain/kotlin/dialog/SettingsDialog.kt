@@ -30,8 +30,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.window.Dialog
 import com.seiko.imageloader.rememberImagePainter
 import core.db.DB
+import core.db.ModEntity
 import core.db.Prefs
 import core.model.Character
+import core.model.Game
 import io.github.vinceglb.filekit.compose.rememberDirectoryPickerLauncher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.collectLatest
@@ -62,9 +64,19 @@ fun SettingsDialog(
                 else
                     insert(Prefs(directory?.path))
             }
+            val dir = directory?.path?.let { File(it) } ?: return@launch
+            val folders = dir.listFiles()?.map { it.name } ?: emptyList()
+
+            DB.modDao.selectAllByGame(Game.Genshin.toByte()).forEach {
+                if (it.fileName !in folders) {
+                    DB.modDao.update(it.copy(enabled = false))
+                } else {
+                    DB.modDao.update(it.copy(enabled = true))
+                }
+            }
         }
     }
-    
+
     Dialog(
         onDismissRequest = onDismissRequest,
     ) {
