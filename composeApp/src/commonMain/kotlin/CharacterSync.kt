@@ -18,16 +18,32 @@ object CharacterSync {
     val stats = MutableStateFlow<Map<Game, Map<Character, List<String>>>>(emptyMap())
 
     private val modDao = DB.modDao
+    private val characterDao = DB.characterDao
 
     val rootDir = File(OS.getDataDir(), "mods")
 
     @OptIn(DelicateCoroutinesApi::class)
-    fun sync(dataApi: DataApi): Job = GlobalScope.launch(Dispatchers.IO) {
-
-        DB.modDao.clear(dataApi.game.data)
+    fun sync(
+        dataApi: DataApi,
+        fromNetwork: Boolean = false,
+    ): Job = GlobalScope.launch(Dispatchers.IO) {
 
         val newStats = mutableMapOf<Character, List<String>>()
-        val characters = dataApi.characterList()
+        val seenMods = mutableSetOf<String>()
+
+        val fetchFromNetwork = suspend {
+            dataApi.characterList()
+                .map { name ->
+                    dataApi.characterData(name.removeSurrounding("\""))
+                        .also { characterDao.insert(it) }
+                }
+        }
+
+        val characters = if (fromNetwork) {
+            fetchFromNetwork()
+        } else {
+            characterDao.selectByGame(dataApi.game).ifEmpty { fetchFromNetwork() }
+        }
 
         val gameDir = File(rootDir, dataApi.game.name)
 
@@ -37,9 +53,7 @@ object CharacterSync {
 
         for (c in characters) {
 
-            val character = dataApi.characterData(c.removeSurrounding("\""))
-
-            val file = File(gameDir, character.name)
+            val file = File(gameDir, c.name)
 
             if (!file.exists()) {
                 file.mkdir()
@@ -50,11 +64,16 @@ object CharacterSync {
                 File(path).listFiles()?.toList() ?: emptyList()
             }
 
-            newStats[character] = file.listFiles()
-                ?.onEach { updateMod(it, character, modDirFiles) }
-                ?.mapNotNull { it.name }
-                ?: emptyList()
+            val files = file.listFiles() ?: return@launch
+            newStats[c] = files.onEach { file ->
+                updateMod(file, c, modDirFiles)
+                seenMods.add(file.name)
+            }
+                .mapNotNull { file -> file.name }
+
         }
+
+        modDao.deleteUnused(used = seenMods.toList(), game = dataApi.game.data)
 
         stats.update { stats ->
             stats.toMutableMap().apply {

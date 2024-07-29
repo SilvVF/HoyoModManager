@@ -6,6 +6,9 @@ import androidx.room.RoomDatabase
 import androidx.room.TypeConverter
 import androidx.room.TypeConverters
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
+import core.model.Character
+import core.model.CharacterDao
+import core.model.Game
 import io.ktor.util.decodeBase64String
 import kotlinx.coroutines.Dispatchers
 import kotlinx.serialization.encodeToString
@@ -14,14 +17,15 @@ import java.io.File
 import java.util.TreeMap
 
 @Database(
-    entities = [ModEntity::class, MetaData::class],
-    version = 2,
+    entities = [ModEntity::class, MetaData::class, Character::class],
+    version = 3,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun modDao(): ModDao
     abstract fun prefsDao(): PrefsDao
+    abstract fun characterDao(): CharacterDao
 }
 
 private const val KEY_VALUE_SEPARATOR = "->"
@@ -53,6 +57,16 @@ class Converters {
             (key.toByte()) to value
         }
     }
+
+    @TypeConverter
+    fun byteToGame(byte: Byte): Game {
+        return Game.entries.first { it.data == byte }
+    }
+
+    @TypeConverter
+    fun gameToByte(game: Game): Byte {
+        return game.data
+    }
 }
 
 object DB {
@@ -62,6 +76,8 @@ object DB {
     val modDao by lazy { instance.modDao() }
 
     val prefsDao by lazy { instance.prefsDao() }
+
+    val characterDao by lazy { instance.characterDao() }
 
     private fun getDatabaseBuilder(): RoomDatabase.Builder<AppDatabase> {
         val dbFile = File(OS.getCacheDir(), "hmm.db")

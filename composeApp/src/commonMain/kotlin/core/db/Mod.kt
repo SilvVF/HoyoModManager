@@ -16,10 +16,21 @@ data class ModEntity(
     @PrimaryKey
     @ColumnInfo(name = "file_name")
     val fileName: String,
-    @ColumnInfo(name = "id") val id: Int,
-    @ColumnInfo(name = "game", index = true) val game: Byte,
-    @ColumnInfo(name = "character") val character: String,
-    @ColumnInfo(name = "enabled", index = true) val enabled: Boolean
+
+    @ColumnInfo(name = "id")
+    val id: Int,
+
+    @ColumnInfo(name = "game", index = true)
+    val game: Byte,
+
+    @ColumnInfo(name = "character")
+    val character: String,
+
+    @ColumnInfo(name = "enabled", index = true)
+    val enabled: Boolean,
+
+    @ColumnInfo(name = "mod_link")
+    val modLink: String? = null
 )
 
 data class ModUpdate(
@@ -37,6 +48,9 @@ interface ModDao {
 
     @Delete
     suspend fun delete(mod: ModEntity)
+
+    @Query("DELETE FROM mod WHERE file_name NOT IN (:used) AND game = :game")
+    suspend fun deleteUnused(used: List<String>, game: Byte)
 
     @Query("DELETE FROM mod WHERE game = :game")
     suspend fun clear(game: Byte)
