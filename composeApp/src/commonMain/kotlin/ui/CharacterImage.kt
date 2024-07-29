@@ -33,7 +33,9 @@ import androidx.compose.ui.unit.dp
 import com.seiko.imageloader.ui.AutoSizeImage
 import core.db.DB
 import core.model.Character
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.count
 import kotlin.random.Random
 
 @Composable
@@ -41,11 +43,11 @@ fun CharacterImage(
     character: Character,
     modifier: Modifier = Modifier
 ) {
-    val modCount by produceState<Int?>(null) {
-        DB.modDao.observeCountByCharacter(character.name).collectLatest { value = it }
+    val modCount by produceState(0) {
+        DB.modDao.observeCountByCharacter(character.name).collect { value = it }
     }
-    val enabledCount by produceState<Int?>(null) {
-        DB.modDao.observeCountByCharacter(character.name).collectLatest { value = it }
+    val enabledCount by produceState(0) {
+        DB.modDao.observeEnabledCountByCharacter(character.name).collect { value = it }
     }
 
     val gradientColor = remember(character) {
@@ -82,7 +84,7 @@ fun CharacterImage(
                 color = Color(0xFFEDE0DD)
             )
             Text(
-                text = remember(enabledCount) { "Mods enabled: ${enabledCount ?: 0}" },
+                text = remember(enabledCount) { "Mods enabled: $enabledCount" },
                 textAlign = TextAlign.Start,
                 style = MaterialTheme.typography.subtitle2,
                 fontWeight = FontWeight.SemiBold,

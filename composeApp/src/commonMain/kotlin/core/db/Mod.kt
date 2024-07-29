@@ -38,8 +38,8 @@ interface ModDao {
     @Delete
     suspend fun delete(mod: ModEntity)
 
-    @Query("DELETE FROM mod")
-    suspend fun clear()
+    @Query("DELETE FROM mod WHERE game = :game")
+    suspend fun clear(game: Byte)
 
     @Query("SELECT * FROM mod WHERE game = :game")
     fun observeByGame(game: Byte): Flow<List<ModEntity>>
@@ -53,14 +53,14 @@ interface ModDao {
     @Query("SELECT * FROM mod WHERE file_name = :name LIMIT 1")
     suspend fun selectByFileName(name: String): ModEntity?
 
-    @Query("SELECT COUNT(file_name) FROM mod WHERE character = :name")
+    @Query("SELECT COUNT(*) FROM mod WHERE character = :name")
     fun observeCountByCharacter(name: String): Flow<Int>
 
-    @Query("SELECT COUNT(file_name) FROM mod WHERE character = :name AND enabled")
+    @Query("SELECT COUNT(*) FROM mod WHERE character = :name AND enabled")
     fun observeEnabledCountByCharacter(name: String): Flow<Int>
 
     @Query("SELECT * FROM mod WHERE character = :name")
-    fun observeByCharacter(name: String): Flow<List<ModEntity?>>
+    fun observeByCharacter(name: String): Flow<List<ModEntity>>
 
     @Update
     suspend fun update(mod: ModEntity)

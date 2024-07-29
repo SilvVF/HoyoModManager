@@ -1,4 +1,6 @@
+import androidx.compose.material.SnackbarHostState
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.window.Window
@@ -18,11 +20,15 @@ fun main() = application {
     ) {
         CompositionLocalProvider(
             LocalImageLoader provides remember { generateImageLoader() },
+            LocalSnackBarHostState provides remember { SnackbarHostState() }
         ) {
             App()
         }
     }
 }
+
+
+val LocalSnackBarHostState  = compositionLocalOf<SnackbarHostState> { error("Not provided in context") }
 
 fun generateImageLoader(): ImageLoader {
     return ImageLoader {

@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 1,
-    "identityHash": "bf786bc396827dfa9fca997bbbf8a0cc",
+    "identityHash": "5dd3265cde1b3e048073f6d3184bb2b4",
     "entities": [
       {
         "tableName": "mod",
@@ -67,7 +67,7 @@
         ]
       },
       {
-        "tableName": "Prefs",
+        "tableName": "MetaData",
         "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`exportModDir` TEXT, `id` INTEGER NOT NULL, PRIMARY KEY(`id`))",
         "fields": [
           {
@@ -92,7 +92,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'bf786bc396827dfa9fca997bbbf8a0cc')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '5dd3265cde1b3e048073f6d3184bb2b4')"
     ]
   }
 }

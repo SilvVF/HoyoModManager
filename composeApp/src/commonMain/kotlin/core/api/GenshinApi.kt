@@ -1,27 +1,36 @@
+package core.api
+
+import core.db.DB
+import core.model.Character
+import core.model.Game
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.jsonObject
 import net.GET
 import net.model.genshin.GiCharacter
+import javax.xml.crypto.Data
 
-class GenshinApi {
 
-    suspend fun characterList(): List<String> {
+object GenshinApi: DataApi {
+
+    override val game: Game = Game.Genshin
+
+    override suspend fun characterList(): List<String> {
         val json = GET<JsonArray>("https://api.github.com/repos/theBowja/genshin-db/contents/src/data/English/characters")
         return List(json.size) {
             json[it].jsonObject["name"]!!.toString()
         }
     }
 
-    val elements = listOf("Anemo", "Cryo", "Dendro", "Electro", "Geo", "Hydro", "Pyro")
+    override val elements = listOf("Anemo", "Cryo", "Dendro", "Electro", "Geo", "Hydro", "Pyro")
 
-    suspend fun elementList(): List<String> {
+    override suspend fun elementList(): List<String> {
         val json = GET<JsonArray>("https://api.github.com/repos/theBowja/genshin-db/contents/src/data/English/elements")
         return List(json.size) {
             json[it].jsonObject["name"]!!.toString()
         }
     }
 
-    fun avatarIconUrl(name: String): String {
+    override fun avatarIconUrl(name: String): String {
 
         val avatar: (String, String) -> String = { folder, path ->
              "https://raw.githubusercontent.com/frzyc/genshin-optimizer/master/libs/gi/assets/src/gen/chars/$folder/UI_AvatarIcon_$path.png"
@@ -57,7 +66,14 @@ class GenshinApi {
         }
     }
 
-    suspend fun characterData(path: String): GiCharacter {
-        return GET("https://raw.githubusercontent.com/theBowja/genshin-db/main/src/data/English/characters/$path")
+    override suspend fun characterData(path: String): Character {
+        val res: GiCharacter = GET("https://raw.githubusercontent.com/theBowja/genshin-db/main/src/data/English/characters/$path")
+        return Character(
+            id = res.id,
+            name = res.name,
+            avatarUrl = avatarIconUrl(res.name),
+            game = game,
+            element = res.elementText,
+        )
     }
 }

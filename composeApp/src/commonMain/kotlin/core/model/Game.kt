@@ -2,22 +2,12 @@ package core.model
 
 import core.db.DB
 
-enum class Game {
-    Genshin, StarRail, ZZZ;
-
-    fun toByte(): Byte = when(this) {
-        Genshin -> DB.GENSHIN
-        StarRail -> DB.STAR_RAIL
-        ZZZ -> DB.ZZZ
-    }
-
+enum class Game(val data: Byte) {
+    Genshin(0x01), 
+    StarRail(0x02), 
+    ZZZ(0x03);
+    
     companion object {
-
-        fun fromByte(byte: Byte) = when(byte){
-            DB.GENSHIN -> Genshin
-            DB.STAR_RAIL -> StarRail
-            DB.ZZZ -> ZZZ
-            else -> error("Invalid byte")
-        }
+        fun fromByte(byte: Byte) = entries.first { it.data == byte }
     }
 }

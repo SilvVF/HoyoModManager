@@ -15,11 +15,8 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -45,14 +42,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.max
 import androidx.compose.ui.util.fastForEach
 import core.db.DB
 import core.model.Character
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlin.random.Random
 
 @Composable
 fun CharacterToggleList(
@@ -64,7 +59,7 @@ fun CharacterToggleList(
     val scope = rememberCoroutineScope()
 
 
-    Box {
+    Box(modifier) {
         LazyVerticalGrid(
             state = lazyGridState,
             modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp),
@@ -93,7 +88,7 @@ fun CharacterToggleList(
                                         ) { expanded = !expanded },
                                 )
                                 FileToggles(
-                                    fileNames = buildList { repeat(4) { addAll(files) } },
+                                    fileNames = files,
                                     modifier = Modifier.fillMaxWidth().heightIn(max = 300.dp),
                                     scope = scope
                                 )

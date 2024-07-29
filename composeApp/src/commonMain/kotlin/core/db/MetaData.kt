@@ -12,7 +12,7 @@ import kotlinx.coroutines.flow.Flow
 private const val PREF_ID = 0
 
 @Entity
-data class Prefs(
+data class MetaData(
     val exportModDir: String?,
     @PrimaryKey val id: Int = PREF_ID,
 )
@@ -21,14 +21,14 @@ data class Prefs(
 interface PrefsDao {
 
     @Insert(onConflict = OnConflictStrategy.IGNORE)
-    suspend fun insert(prefs: Prefs)
+    suspend fun insert(data: MetaData)
 
     @Update
-    suspend fun update(prefs: Prefs)
+    suspend fun update(data: MetaData)
 
-    @Query("SELECT * FROM Prefs WHERE id = 0 LIMIT 1")
-    suspend fun select(): Prefs?
+    @Query("SELECT * FROM MetaData WHERE id = 0 LIMIT 1")
+    suspend fun select(): MetaData?
 
-    @Query("SELECT * FROM Prefs WHERE id = 0 LIMIT 1")
-    fun observe(): Flow<Prefs?>
+    @Query("SELECT * FROM MetaData WHERE id = 0 LIMIT 1")
+    fun observe(): Flow<MetaData?>
 }

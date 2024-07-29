@@ -1,3 +1,5 @@
+import core.api.DataApi
+import core.api.GenshinApi
 import core.db.DB
 import core.db.ModEntity
 import core.model.Character
@@ -7,48 +9,41 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.io.File
 
 object CharacterSync {
 
-    val stats = MutableStateFlow(emptyMap<Character, List<String>>())
+    val stats = MutableStateFlow<Map<Game, Map<Character, List<String>>>>(emptyMap())
 
-    private val genshinApi = GenshinApi()
     private val modDao = DB.modDao
 
-    val elements = genshinApi.elements
     val rootDir = File(OS.getDataDir(), "mods")
 
     @OptIn(DelicateCoroutinesApi::class)
-    fun sync(): Job = GlobalScope.launch(Dispatchers.IO) {
+    fun sync(dataApi: DataApi): Job = GlobalScope.launch(Dispatchers.IO) {
 
-        DB.modDao.clear()
+        DB.modDao.clear(dataApi.game.data)
 
         val newStats = mutableMapOf<Character, List<String>>()
+        val characters = dataApi.characterList()
 
-        val characters = genshinApi.characterList()
+        val gameDir = File(rootDir, dataApi.game.name)
 
-        if (!rootDir.exists()) {
-            rootDir.mkdirs()
+        if (!gameDir.exists()) {
+            gameDir.mkdirs()
         }
 
         for (c in characters) {
-            val characterData = genshinApi.characterData(c.removeSurrounding("\""))
 
-            val file = File(rootDir, characterData.name)
+            val character = dataApi.characterData(c.removeSurrounding("\""))
+
+            val file = File(gameDir, character.name)
 
             if (!file.exists()) {
                 file.mkdir()
             }
-
-            val character = Character(
-                id = characterData.id,
-                name = characterData.name,
-                avatarUrl = genshinApi.avatarIconUrl(characterData.name),
-                game = Game.fromByte(DB.GENSHIN),
-                element = characterData.elementText,
-            )
 
             val modDirFiles = run {
                 val path = DB.prefsDao.select()?.exportModDir ?: return@run emptyList<File>()
@@ -61,16 +56,20 @@ object CharacterSync {
                 ?: emptyList()
         }
 
-        stats.emit(newStats)
+        stats.update { stats ->
+            stats.toMutableMap().apply {
+                this[dataApi.game] = newStats
+            }
+                .toMap()
+        }
     }
 
 
     private suspend fun updateMod(file: File, character: Character, modDirFiles: List<File>) {
-        println("updating or creating ${file.name} ${character.name}")
         modDao.insert(
             ModEntity(
                 id = character.id,
-                game = DB.GENSHIN,
+                game = character.game.data,
                 character = character.name,
                 fileName = file.name,
                 enabled = modDirFiles.map { it.name }.contains(file.name)
