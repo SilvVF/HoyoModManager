@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 3,
-    "identityHash": "aeb649b0a864e18b7658b4fd5936925d",
+    "identityHash": "22115e4ac0d924c0453ea28614d28248",
     "entities": [
       {
         "tableName": "mod",
@@ -136,11 +136,60 @@
             "game"
           ]
         }
+      },
+      {
+        "tableName": "Tag",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`file_name` TEXT NOT NULL, `name` TEXT NOT NULL, PRIMARY KEY(`file_name`, `name`), FOREIGN KEY(`file_name`) REFERENCES `mod`(`file_name`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "fileName",
+            "columnName": "file_name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "name",
+            "columnName": "name",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "file_name",
+            "name"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_Tag_file_name",
+            "unique": false,
+            "columnNames": [
+              "file_name"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_Tag_file_name` ON `${TABLE_NAME}` (`file_name`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "mod",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "file_name"
+            ],
+            "referencedColumns": [
+              "file_name"
+            ]
+          }
+        ]
       }
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'aeb649b0a864e18b7658b4fd5936925d')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '22115e4ac0d924c0453ea28614d28248')"
     ]
   }
 }

@@ -3,12 +3,16 @@ package core.db
 import androidx.room.ColumnInfo
 import androidx.room.Dao
 import androidx.room.Delete
+import androidx.room.Embedded
 import androidx.room.Entity
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.PrimaryKey
 import androidx.room.Query
+import androidx.room.Relation
+import androidx.room.Transaction
 import androidx.room.Update
+import core.model.Tag
 import kotlinx.coroutines.flow.Flow
 
 @Entity(tableName = "mod")
@@ -38,6 +42,17 @@ data class ModUpdate(
     val character: String? = null,
     val fileName: String? = null,
     val enabled: Boolean? = null
+)
+
+data class ModWithTags(
+    @Embedded
+    val mod: ModEntity,
+
+    @Relation(
+        parentColumn = "file_name",
+        entityColumn = "file_name"
+    )
+    val tags: List<Tag>
 )
 
 @Dao
@@ -83,4 +98,8 @@ interface ModDao {
         SELECT * FROM mod WHERE enabled AND game = :game 
     """)
     suspend fun selectEnabledForGame(game: Byte): List<ModEntity>
+
+    @Transaction
+    @Query("SELECT * FROM mod WHERE file_name in (:fileNames) AND game = :game")
+    fun observeModsWithTags(fileNames: List<String>, game: Byte): Flow<List<ModWithTags>>
 }

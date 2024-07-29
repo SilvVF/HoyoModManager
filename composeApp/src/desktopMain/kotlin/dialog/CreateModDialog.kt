@@ -1,14 +1,12 @@
 package dialog
 
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -72,14 +70,16 @@ fun CreateModDialog(
                     contentScale = ContentScale.Fit,
                 )
 
-                Box(modifier = Modifier.fillMaxWidth().wrapContentSize(Alignment.TopEnd)) {
+                Box(modifier = Modifier.wrapContentSize(Alignment.Center)) {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
                         Text(
                             text = characters[selectedIndex].name,
                             style = MaterialTheme.typography.h5,
                             modifier = Modifier.clickable(onClick = { expanded = true })
                         )
-                        IconButton(onClick = { expanded = true }) {
+                        IconButton(
+                            onClick = { expanded = true }
+                        ) {
                             Icon(imageVector = Icons.Outlined.ArrowDropDown, contentDescription = null)
                         }
                     }

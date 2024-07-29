@@ -69,8 +69,6 @@ sealed interface Dialog {
     data object AddMod: Dialog
 }
 
-fun <T, E> Flow<T>.combineToPair(flow2: Flow<E>): Flow<Pair<T, E>> = this.combine(flow2) { a, b -> a to b }
-
 @Composable
 fun AppTheme(content: @Composable () -> Unit) {
     MaterialTheme(
@@ -136,7 +134,8 @@ fun AppContent(
         CharacterToggleList(
             modifier = Modifier.fillMaxSize(),
             paddingValues = paddingValues,
-            charactersWithMods = characters
+            charactersWithMods = characters,
+            game = LocalDataApi.current.game
         )
     }
 
