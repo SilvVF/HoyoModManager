@@ -53,6 +53,15 @@ interface ModDao {
     @Query("SELECT * FROM mod WHERE file_name = :name LIMIT 1")
     suspend fun selectByFileName(name: String): ModEntity?
 
+    @Query("SELECT COUNT(file_name) FROM mod WHERE character = :name")
+    fun observeCountByCharacter(name: String): Flow<Int>
+
+    @Query("SELECT COUNT(file_name) FROM mod WHERE character = :name AND enabled")
+    fun observeEnabledCountByCharacter(name: String): Flow<Int>
+
+    @Query("SELECT * FROM mod WHERE character = :name")
+    fun observeByCharacter(name: String): Flow<List<ModEntity?>>
+
     @Update
     suspend fun update(mod: ModEntity)
 

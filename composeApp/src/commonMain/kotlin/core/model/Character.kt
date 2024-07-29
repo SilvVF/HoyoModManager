@@ -5,5 +5,5 @@ data class Character(
     val game: Game,
     val name: String,
     val avatarUrl: String,
-    val element: String
+    val element: String,
 )
