@@ -22,7 +22,6 @@ object CharacterSync {
 
     val rootDir = File(OS.getDataDir(), "mods")
 
-    @OptIn(DelicateCoroutinesApi::class)
     fun sync(
         dataApi: DataApi,
         fromNetwork: Boolean = false,

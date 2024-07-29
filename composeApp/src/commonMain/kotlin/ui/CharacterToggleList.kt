@@ -401,7 +401,6 @@ private fun ModActionPopups(
     }
 }
 
-@OptIn(ExperimentalMaterialApi::class)
 @Composable
 private fun TagsList(
     tags: List<Tag>,

@@ -38,7 +38,6 @@ class Converters {
     /**
      * return key1->value1||key2->value2||key3->value3
      */
-    @OptIn(ExperimentalStdlibApi::class)
     @TypeConverter
     fun mapToString(map: Map<Byte, String>): String {
         return map.entries.joinToString(separator = ENTRY_SEPARATOR) {

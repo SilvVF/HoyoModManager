@@ -229,7 +229,6 @@ fun App() {
     }
 }
 
-@OptIn(ExperimentalMaterialApi::class, ExperimentalFoundationApi::class)
 @Composable
 fun CharacterListTopBar(
     modifier: Modifier = Modifier,
