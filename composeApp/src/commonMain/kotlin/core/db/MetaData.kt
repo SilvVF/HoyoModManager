@@ -6,14 +6,16 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.PrimaryKey
 import androidx.room.Query
+import androidx.room.TypeConverter
 import androidx.room.Update
 import kotlinx.coroutines.flow.Flow
 
 private const val PREF_ID = 0
 
+
 @Entity
 data class MetaData(
-    val exportModDir: String?,
+    val exportModDir: Map<Byte, String>?,
     @PrimaryKey val id: Int = PREF_ID,
 )
 

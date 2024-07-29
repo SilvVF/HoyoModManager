@@ -285,7 +285,7 @@ fun GenerateButton(
     val generateFiles = {
         loading = true
         scope.launch(NonCancellable + Dispatchers.IO) {
-            val exportDir = File(DB.prefsDao.select()?.exportModDir ?: return@launch)
+            val exportDir = File(DB.prefsDao.select()?.exportModDir?.get(dataApi.game.data) ?: return@launch)
             val selected = DB.modDao.selectEnabledForGame(dataApi.game.data)
 
             selected.forEach { mod ->

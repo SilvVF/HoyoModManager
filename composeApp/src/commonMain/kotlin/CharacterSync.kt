@@ -46,7 +46,7 @@ object CharacterSync {
             }
 
             val modDirFiles = run {
-                val path = DB.prefsDao.select()?.exportModDir ?: return@run emptyList<File>()
+                val path = DB.prefsDao.select()?.exportModDir?.get(dataApi.game.data) ?: return@run emptyList<File>()
                 File(path).listFiles()?.toList() ?: emptyList()
             }
 
