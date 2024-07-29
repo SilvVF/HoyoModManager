@@ -10,6 +10,7 @@ import core.model.Character
 import core.model.CharacterDao
 import core.model.Game
 import core.model.Tag
+import core.model.TagDao
 import io.ktor.util.decodeBase64String
 import kotlinx.coroutines.Dispatchers
 import kotlinx.serialization.encodeToString
@@ -27,6 +28,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun modDao(): ModDao
     abstract fun prefsDao(): PrefsDao
     abstract fun characterDao(): CharacterDao
+    abstract fun tagDao(): TagDao
 }
 
 private const val KEY_VALUE_SEPARATOR = "->"
@@ -79,6 +81,8 @@ object DB {
     val prefsDao by lazy { instance.prefsDao() }
 
     val characterDao by lazy { instance.characterDao() }
+
+    val tagDao by lazy { instance.tagDao() }
 
     private fun getDatabaseBuilder(): RoomDatabase.Builder<AppDatabase> {
         val dbFile = File(OS.getCacheDir(), "hmm.db")

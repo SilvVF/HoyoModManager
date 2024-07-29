@@ -1,5 +1,6 @@
 package ui
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.LocalScrollbarStyle
 import androidx.compose.foundation.VerticalScrollbar
 import androidx.compose.foundation.background
@@ -30,6 +31,7 @@ import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollbarAdapter
+import androidx.compose.material.Button
 import androidx.compose.material.Card
 import androidx.compose.material.Chip
 import androidx.compose.material.Divider
@@ -38,8 +40,11 @@ import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material.Icon
 import androidx.compose.material.IconButton
 import androidx.compose.material.MaterialTheme
+import androidx.compose.material.Surface
 import androidx.compose.material.Switch
 import androidx.compose.material.Text
+import androidx.compose.material.TextButton
+import androidx.compose.material.TextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
@@ -64,11 +69,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastForEach
+import androidx.compose.ui.window.Popup
 import core.db.DB
 import core.db.ModWithTags
 import core.model.Character
 import core.model.Game
 import core.model.Tag
+import core.renameFolder
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.flatMapLatest
@@ -160,7 +167,6 @@ fun CharacterToggleList(
     }
 }
 
-@OptIn(ExperimentalMaterialApi::class)
 @Composable
 fun FileToggles(
     fileNames: List<String>,
@@ -204,45 +210,11 @@ fun FileToggles(
                                 text = mod.fileName,
                                 modifier = Modifier.weight(1f)
                             )
-                            Box(modifier = Modifier.wrapContentSize(Alignment.TopStart)) {
-                                IconButton(
-                                    onClick = { dropDownExpanded = !dropDownExpanded },
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Outlined.Menu,
-                                        contentDescription = null
-                                    )
-                                }
-                                DropdownMenu(
-                                    expanded = dropDownExpanded,
-                                    onDismissRequest = { dropDownExpanded = false},
-                                ) {
-                                    IconButton(
-                                        onClick = { },
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Outlined.Delete,
-                                            contentDescription = null
-                                        )
-                                    }
-                                    IconButton(
-                                        onClick = {},
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Outlined.Edit,
-                                            contentDescription = null
-                                        )
-                                    }
-                                    IconButton(
-                                        onClick = {},
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Outlined.Add,
-                                            contentDescription = null
-                                        )
-                                    }
-                                }
-                            }
+                            ModActionDropdownMenu(
+                                fileName = mod.fileName,
+                                dropDownExpanded = dropDownExpanded,
+                                toggleExpanded = { dropDownExpanded = !dropDownExpanded },
+                            )
                             Switch(
                                 checked = checked,
                                 onCheckedChange = {
@@ -252,61 +224,10 @@ fun FileToggles(
                                 },
                             )
                         }
-                        Box {
-                            val lazyRowState = rememberLazyListState()
-                            LazyRow(
-                                Modifier.fillMaxWidth(),
-                                state = lazyRowState,
-                                contentPadding = PaddingValues(horizontal = 32.dp)
-                            ) {
-                                items(
-                                    listOf(
-                                        Tag("dkjalksdf", "kdjfklajdfl"),
-                                        Tag("dkjasdf", "kdjfajdfl"),
-                                        Tag("dkjalksdf", "jfklajdfl"),
-                                        Tag("dkksdf", "kdjajdfl"),
-                                        Tag("dkjaksdf", "kdjfkldfl"),
-                                    ),
-                                    key = { it.name + it.fileName }
-                                ) { tag ->
-                                    Chip(
-                                        onClick = {},
-                                        modifier = Modifier.padding(horizontal = 2.dp)
-                                    ) {
-                                        Text(tag.name)
-                                    }
-                                }
-                            }
-                            val iconButton = @Composable { onClick: suspend () -> Unit, icon: ImageVector, align: Alignment ->
-                                IconButton(
-                                    onClick = {
-                                        scope.launch { onClick() }
-                                    },
-                                    modifier = Modifier
-                                        .size(32.dp)
-                                        .align(align),
-                                ) {
-                                    Icon(
-                                        imageVector = icon,
-                                        contentDescription = null
-                                    )
-                                }
-                            }
-                            iconButton(
-                                {
-                                    val idx = (lazyRowState.firstVisibleItemIndex - 1).coerceAtLeast(0)
-                                    lazyRowState.animateScrollToItem(idx)
-                                },
-                                Icons.AutoMirrored.Outlined.KeyboardArrowLeft,
-                                Alignment.CenterStart
-                            )
-                            iconButton(
-                                {
-                                    val idx = (lazyRowState.firstVisibleItemIndex + 1)
-                                    lazyRowState.animateScrollToItem(idx)
-                                },
-                                Icons.AutoMirrored.Outlined.KeyboardArrowRight,
-                                Alignment.CenterEnd
+                        AnimatedVisibility(tags.isNotEmpty()) {
+                            TagsList(
+                                tags = tags,
+                                scope = scope
                             )
                         }
                     }
@@ -322,6 +243,221 @@ fun FileToggles(
                 hoverColor = MaterialTheme.colors.primary,
                 unhoverColor = MaterialTheme.colors.primary
             )
+        )
+    }
+}
+
+private sealed interface ModPopup {
+    data object EditName: ModPopup
+    data object Delete: ModPopup
+    data object AddTag: ModPopup
+}
+
+@Composable
+private fun ModActionDropdownMenu(
+    fileName: String,
+    dropDownExpanded: Boolean,
+    toggleExpanded: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val scope = rememberCoroutineScope()
+    val iconButton = @Composable { action: () -> Unit, icon: ImageVector ->
+        IconButton(
+            onClick = action,
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null
+            )
+        }
+    }
+    var currentPopup by remember { mutableStateOf<ModPopup?>(null) }
+    val dismiss = { currentPopup = null }
+
+    currentPopup?.let { popup ->
+        Popup(
+            onDismissRequest = dismiss
+        ) {
+            Surface(
+                Modifier.padding(22.dp)
+            ) {
+                ModActionPopups(
+                    popup,
+                    fileName,
+                    dismiss,
+                    scope
+                )
+            }
+        }
+    }
+
+    Box(modifier = modifier.wrapContentSize(Alignment.TopStart)) {
+        iconButton(
+            toggleExpanded,
+            Icons.Outlined.Menu
+        )
+        DropdownMenu(
+            expanded = dropDownExpanded,
+            onDismissRequest = toggleExpanded,
+        ) {
+            iconButton(
+                { currentPopup = ModPopup.EditName },
+                Icons.Outlined.Edit
+            )
+            iconButton(
+                { currentPopup = ModPopup.AddTag },
+                Icons.Outlined.Add
+            )
+            iconButton(
+                { currentPopup = ModPopup.Delete },
+                Icons.Outlined.Delete
+            )
+        }
+    }
+}
+
+@Composable
+private fun ModActionPopups(
+    popup: ModPopup,
+    fileName: String,
+    dismiss: () -> Unit,
+    scope: CoroutineScope,
+    modifier: Modifier = Modifier
+) {
+    when(popup) {
+        ModPopup.AddTag -> {
+            var text by remember { mutableStateOf("") }
+            Column(modifier) {
+                TextField(
+                    onValueChange = { text = it },
+                    value = text
+                )
+                Row {
+                    TextButton(
+                        onClick = dismiss
+                    ) {
+                        Text("Cancel")
+                    }
+                    Button(
+                        onClick = {
+                            scope.launch(Dispatchers.IO) {
+                                if (text.isEmpty())
+                                    return@launch
+
+                                DB.tagDao.insert(Tag(fileName, text))
+                            }
+                            dismiss()
+                        }
+                    ) {
+                        Text("Confirm")
+                    }
+                }
+            }
+        }
+
+        ModPopup.Delete -> {
+            Column(modifier) {
+                Text("this will also delete the mod file")
+                Row {
+                    TextButton(
+                        onClick = dismiss
+                    ) {
+                        Text("Cancel")
+                    }
+                    Button(
+                        onClick = {
+                            dismiss()
+                        }
+                    ) {
+                        Text("Confirm")
+                    }
+                }
+            }
+        }
+
+        ModPopup.EditName -> {
+            var text by remember { mutableStateOf("") }
+            Column(modifier) {
+                TextField(
+                    onValueChange = { text = it },
+                    value = text
+                )
+                Row {
+                    TextButton(
+                        onClick = dismiss
+                    ) {
+                        Text("Cancel")
+                    }
+                    Button(
+                        onClick = {
+                            dismiss()
+                        }
+                    ) {
+                        Text("Confirm")
+                    }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterialApi::class)
+@Composable
+private fun TagsList(
+    tags: List<Tag>,
+    scope: CoroutineScope,
+    modifier: Modifier = Modifier
+) {
+    Box {
+        val lazyRowState = rememberLazyListState()
+        LazyRow(
+            Modifier.fillMaxWidth(),
+            state = lazyRowState,
+            contentPadding = PaddingValues(horizontal = 32.dp)
+        ) {
+            items(
+                tags,
+                key = { it.name + it.fileName }
+            ) { tag ->
+                Chip(
+                    onClick = {},
+                    modifier = Modifier.padding(horizontal = 2.dp)
+                ) {
+                    Text(tag.name)
+                }
+            }
+        }
+        val iconButton =
+            @Composable { onClick: suspend () -> Unit, icon: ImageVector, align: Alignment ->
+                IconButton(
+                    onClick = {
+                        scope.launch { onClick() }
+                    },
+                    modifier = Modifier
+                        .size(32.dp)
+                        .align(align),
+                ) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null
+                    )
+                }
+            }
+        iconButton(
+            {
+                val idx = (lazyRowState.firstVisibleItemIndex - 1).coerceAtLeast(0)
+                lazyRowState.animateScrollToItem(idx)
+            },
+            Icons.AutoMirrored.Outlined.KeyboardArrowLeft,
+            Alignment.CenterStart
+        )
+        iconButton(
+            {
+                val idx = (lazyRowState.firstVisibleItemIndex + 1)
+                lazyRowState.animateScrollToItem(idx)
+            },
+            Icons.AutoMirrored.Outlined.KeyboardArrowRight,
+            Alignment.CenterEnd
         )
     }
 }

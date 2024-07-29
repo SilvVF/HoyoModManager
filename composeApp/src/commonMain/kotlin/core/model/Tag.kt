@@ -1,8 +1,12 @@
 package core.model
 
 import androidx.room.ColumnInfo
+import androidx.room.Dao
+import androidx.room.Delete
 import androidx.room.Entity
 import androidx.room.ForeignKey
+import androidx.room.Insert
+import androidx.room.OnConflictStrategy
 import androidx.room.PrimaryKey
 import core.db.ModEntity
 
@@ -24,3 +28,12 @@ data class Tag(
     val name: String,
 )
 
+@Dao
+interface TagDao {
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insert(tag: Tag)
+
+    @Delete
+    suspend fun delete(tag: Tag)
+}
