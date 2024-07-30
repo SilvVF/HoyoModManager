@@ -5,6 +5,7 @@ import androidx.room.Dao
 import androidx.room.Delete
 import androidx.room.Embedded
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.PrimaryKey
@@ -15,14 +16,14 @@ import androidx.room.Update
 import core.model.Tag
 import kotlinx.coroutines.flow.Flow
 
-@Entity(tableName = "mod")
-data class ModEntity(
-    @PrimaryKey
+@Entity(
+    tableName = "mod",
+    indices = [Index("file_name", "character_id", unique = true)]
+)
+data class Mod(
+
     @ColumnInfo(name = "file_name")
     val fileName: String,
-
-    @ColumnInfo(name = "id")
-    val id: Int,
 
     @ColumnInfo(name = "game", index = true)
     val game: Byte,
@@ -30,11 +31,17 @@ data class ModEntity(
     @ColumnInfo(name = "character")
     val character: String,
 
+    @ColumnInfo(name = "character_id")
+    val characterId: Int,
+
     @ColumnInfo(name = "enabled", index = true)
     val enabled: Boolean,
 
     @ColumnInfo(name = "mod_link")
-    val modLink: String? = null
+    val modLink: String? = null,
+
+    @PrimaryKey(autoGenerate = true)
+    val id: Int = 0
 )
 
 data class ModUpdate(
@@ -45,12 +52,13 @@ data class ModUpdate(
 )
 
 data class ModWithTags(
+
     @Embedded
-    val mod: ModEntity,
+    val mod: Mod,
 
     @Relation(
-        parentColumn = "file_name",
-        entityColumn = "file_name"
+        parentColumn = "id",
+        entityColumn = "mod_id"
     )
     val tags: List<Tag>
 )
@@ -59,10 +67,10 @@ data class ModWithTags(
 interface ModDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insert(mod: ModEntity)
+    suspend fun insert(mod: Mod)
 
     @Delete
-    suspend fun delete(mod: ModEntity)
+    suspend fun delete(mod: Mod)
 
     @Query("DELETE FROM mod WHERE file_name NOT IN (:used) AND game = :game")
     suspend fun deleteUnused(used: List<String>, game: Byte)
@@ -71,16 +79,19 @@ interface ModDao {
     suspend fun clear(game: Byte)
 
     @Query("SELECT * FROM mod WHERE game = :game")
-    fun observeByGame(game: Byte): Flow<List<ModEntity>>
+    fun observeByGame(game: Byte): Flow<List<Mod>>
+
+    @Query("SELECT file_name FROM mod WHERE game = :game")
+    fun observeFileNamesByGame(game: Byte): Flow<List<String>>
 
     @Query("SELECT * FROM mod WHERE file_name = :name LIMIT 1")
-    fun observeByFileName(name: String): Flow<ModEntity?>
+    fun observeByFileName(name: String): Flow<Mod?>
 
     @Query("SELECT * FROM mod WHERE game = :game")
-    suspend fun selectAllByGame(game: Byte): List<ModEntity>
+    suspend fun selectAllByGame(game: Byte): List<Mod>
 
     @Query("SELECT * FROM mod WHERE file_name = :name LIMIT 1")
-    suspend fun selectByFileName(name: String): ModEntity?
+    suspend fun selectByFileName(name: String): Mod?
 
     @Query("SELECT COUNT(*) FROM mod WHERE character = :name")
     fun observeCountByCharacter(name: String): Flow<Int>
@@ -89,17 +100,17 @@ interface ModDao {
     fun observeEnabledCountByCharacter(name: String): Flow<Int>
 
     @Query("SELECT * FROM mod WHERE character = :name")
-    fun observeByCharacter(name: String): Flow<List<ModEntity>>
+    fun observeByCharacter(name: String): Flow<List<Mod>>
 
     @Update
-    suspend fun update(mod: ModEntity)
+    suspend fun update(mod: Mod)
 
     @Query("""
         SELECT * FROM mod WHERE enabled AND game = :game 
     """)
-    suspend fun selectEnabledForGame(game: Byte): List<ModEntity>
+    suspend fun selectEnabledForGame(game: Byte): List<Mod>
 
     @Transaction
-    @Query("SELECT * FROM mod WHERE file_name in (:fileNames) AND game = :game")
-    fun observeModsWithTags(fileNames: List<String>, game: Byte): Flow<List<ModWithTags>>
+    @Query("SELECT * FROM mod WHERE character = :character AND game = :game")
+    fun observeModsWithTags(character: String, game: Byte): Flow<List<ModWithTags>>
 }

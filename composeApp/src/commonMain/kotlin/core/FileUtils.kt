@@ -13,8 +13,11 @@ suspend fun renameFolder(file: File, name: String): Result<File>  = withContext(
             it.toFile().mkdirs()
         }
 
-        Files.move(file.toPath(), rename, StandardCopyOption.REPLACE_EXISTING)
-            .toFile()
-            .also { file.deleteRecursively() }
+        Files.move(file.toPath(), rename, StandardCopyOption.REPLACE_EXISTING).toFile()
     }
+}
+
+fun seperate(vararg parts: String) = parts.reduceIndexed { i, acc, s ->
+    if (i == 0) acc + s
+    else acc + File.separator + s
 }

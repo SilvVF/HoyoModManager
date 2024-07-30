@@ -7,6 +7,7 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Update
+import kotlinx.coroutines.flow.Flow
 
 @Entity(tableName = "character", primaryKeys = ["id", "game"])
 data class Character(
@@ -32,4 +33,7 @@ interface CharacterDao {
 
     @Query("SELECT * FROM character WHERE game = :game")
     suspend fun selectByGame(game: Game): List<Character>
+
+    @Query("SELECT * FROM character WHERE game = :game")
+    fun observeByGame(game: Game): Flow<List<Character>>
 }

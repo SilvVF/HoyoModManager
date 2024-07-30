@@ -6,8 +6,11 @@ enum class Game(val data: Byte) {
     Genshin(0x01), 
     StarRail(0x02), 
     ZZZ(0x03);
-    
+
+    val subPath: String = this.name
+
     companion object {
+
         fun fromByte(byte: Byte) = entries.first { it.data == byte }
     }
 }

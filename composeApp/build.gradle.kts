@@ -61,6 +61,7 @@ kotlin {
             "-opt-in=androidx.compose.animation.ExperimentalAnimationApi",
             "-opt-in=kotlinx.coroutines.FlowPreview",
             "-opt-in=kotlinx.coroutines.DelicateCoroutinesApi",
+            "-opt-in=kotlinx.coroutines.ExperimentalCoroutinesApi",
             "-Xcontext-receivers",
         )
     )

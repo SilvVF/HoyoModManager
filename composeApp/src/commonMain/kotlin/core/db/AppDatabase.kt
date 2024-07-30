@@ -11,15 +11,11 @@ import core.model.CharacterDao
 import core.model.Game
 import core.model.Tag
 import core.model.TagDao
-import io.ktor.util.decodeBase64String
 import kotlinx.coroutines.Dispatchers
-import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
 import java.io.File
-import java.util.TreeMap
 
 @Database(
-    entities = [ModEntity::class, MetaData::class, Character::class, Tag::class],
+    entities = [Mod::class, MetaData::class, Character::class, Tag::class],
     version = 3,
     exportSchema = true
 )

@@ -1,4 +1,4 @@
-package dialog
+package ui.dialog
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.Image
@@ -32,6 +32,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.util.fastForEachIndexed
 import androidx.compose.ui.window.Dialog
@@ -40,6 +41,7 @@ import core.renameFolder
 import core.model.Character
 import io.github.vinceglb.filekit.compose.rememberDirectoryPickerLauncher
 import kotlinx.coroutines.launch
+import ui.widget.ChangeTextPopup
 import java.io.File
 
 private sealed interface SelectionState {
@@ -140,7 +142,9 @@ fun CreateModDialog(
                                 Text(selectedDir?.path ?: "No directory selected")
                                 if (selectedDir != null) {
                                     TextButton(
-                                        onClick = { selectionState = SelectionState.Renaming(selectedDir!!) }
+                                        onClick = { selectionState =
+                                            SelectionState.Renaming(selectedDir!!)
+                                        }
                                     ) {
                                         Text("Rename")
                                     }
@@ -149,32 +153,23 @@ fun CreateModDialog(
                         }
                         is SelectionState.Renaming -> {
                             var text by remember { mutableStateOf(state.file.name) }
-                            Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-                                TextField(
-                                    onValueChange = { text = it },
-                                    value = text
-                                )
-                                Row {
-                                    TextButton(
-                                        onClick = { selectionState = SelectionState.Default }
-                                    ) {
-                                        Text("Cancel")
-                                    }
-                                    Button(
-                                        onClick = {
-                                            scope.launch {
-                                                renameFolder(state.file, text)
-                                                    .onSuccess { renamed ->
-                                                        selectedDir = renamed
-                                                    }
+                            ChangeTextPopup(
+                                value = text,
+                                surfaceColor = Color.Transparent,
+                                message = { Message("Rename the mod folder.") },
+                                onValueChange = { text = it },
+                                onCancel = { selectionState = SelectionState.Default },
+                                onConfirm = {
+                                    scope.launch {
+                                        renameFolder(state.file, text)
+                                            .onSuccess { renamed ->
+                                                selectedDir = renamed
                                             }
-                                            selectionState = SelectionState.Default
-                                        }
-                                    ) {
-                                        Text("Confirm")
                                     }
-                                }
-                            }
+                                    selectionState = SelectionState.Default
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                            )
                         }
                     }
                 }

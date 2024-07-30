@@ -5,25 +5,26 @@ import androidx.room.Dao
 import androidx.room.Delete
 import androidx.room.Entity
 import androidx.room.ForeignKey
+import androidx.room.Index
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
-import androidx.room.PrimaryKey
-import core.db.ModEntity
+import core.db.Mod
 
 @Entity(
-    primaryKeys = ["file_name", "name"],
+    primaryKeys = ["mod_id", "name"],
     foreignKeys = [
         ForeignKey(
-            entity = ModEntity::class,
-            parentColumns = arrayOf("file_name"),
-            childColumns = arrayOf("file_name"),
-            onDelete = ForeignKey.CASCADE
+            entity = Mod::class,
+            parentColumns = arrayOf("id"),
+            childColumns = arrayOf("mod_id"),
+            onDelete = ForeignKey.CASCADE,
         )
     ]
 )
 data class Tag(
-    @ColumnInfo("file_name", index = true)
-    val fileName: String,
+
+    @ColumnInfo("mod_id")
+    val modId: Int,
 
     val name: String,
 )

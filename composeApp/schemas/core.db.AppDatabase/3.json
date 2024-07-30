@@ -2,22 +2,16 @@
   "formatVersion": 1,
   "database": {
     "version": 3,
-    "identityHash": "22115e4ac0d924c0453ea28614d28248",
+    "identityHash": "5ec69929d4ba4a8cebb647b00affab29",
     "entities": [
       {
         "tableName": "mod",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`file_name` TEXT NOT NULL, `id` INTEGER NOT NULL, `game` INTEGER NOT NULL, `character` TEXT NOT NULL, `enabled` INTEGER NOT NULL, `mod_link` TEXT, PRIMARY KEY(`file_name`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`file_name` TEXT NOT NULL, `game` INTEGER NOT NULL, `character` TEXT NOT NULL, `character_id` INTEGER NOT NULL, `enabled` INTEGER NOT NULL, `mod_link` TEXT, `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL)",
         "fields": [
           {
             "fieldPath": "fileName",
             "columnName": "file_name",
             "affinity": "TEXT",
-            "notNull": true
-          },
-          {
-            "fieldPath": "id",
-            "columnName": "id",
-            "affinity": "INTEGER",
             "notNull": true
           },
           {
@@ -33,6 +27,12 @@
             "notNull": true
           },
           {
+            "fieldPath": "characterId",
+            "columnName": "character_id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
             "fieldPath": "enabled",
             "columnName": "enabled",
             "affinity": "INTEGER",
@@ -42,15 +42,31 @@
             "fieldPath": "modLink",
             "columnName": "mod_link",
             "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
           }
         ],
         "primaryKey": {
-          "autoGenerate": false,
+          "autoGenerate": true,
           "columnNames": [
-            "file_name"
+            "id"
           ]
         },
         "indices": [
+          {
+            "name": "index_mod_file_name_character_id",
+            "unique": true,
+            "columnNames": [
+              "file_name",
+              "character_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_mod_file_name_character_id` ON `${TABLE_NAME}` (`file_name`, `character_id`)"
+          },
           {
             "name": "index_mod_game",
             "unique": false,
@@ -139,12 +155,12 @@
       },
       {
         "tableName": "Tag",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`file_name` TEXT NOT NULL, `name` TEXT NOT NULL, PRIMARY KEY(`file_name`, `name`), FOREIGN KEY(`file_name`) REFERENCES `mod`(`file_name`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`mod_id` INTEGER NOT NULL, `name` TEXT NOT NULL, PRIMARY KEY(`mod_id`, `name`), FOREIGN KEY(`mod_id`) REFERENCES `mod`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
         "fields": [
           {
-            "fieldPath": "fileName",
-            "columnName": "file_name",
-            "affinity": "TEXT",
+            "fieldPath": "modId",
+            "columnName": "mod_id",
+            "affinity": "INTEGER",
             "notNull": true
           },
           {
@@ -157,31 +173,20 @@
         "primaryKey": {
           "autoGenerate": false,
           "columnNames": [
-            "file_name",
+            "mod_id",
             "name"
           ]
         },
-        "indices": [
-          {
-            "name": "index_Tag_file_name",
-            "unique": false,
-            "columnNames": [
-              "file_name"
-            ],
-            "orders": [],
-            "createSql": "CREATE INDEX IF NOT EXISTS `index_Tag_file_name` ON `${TABLE_NAME}` (`file_name`)"
-          }
-        ],
         "foreignKeys": [
           {
             "table": "mod",
             "onDelete": "CASCADE",
             "onUpdate": "NO ACTION",
             "columns": [
-              "file_name"
+              "mod_id"
             ],
             "referencedColumns": [
-              "file_name"
+              "id"
             ]
           }
         ]
@@ -189,7 +194,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '22115e4ac0d924c0453ea28614d28248')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '5ec69929d4ba4a8cebb647b00affab29')"
     ]
   }
 }

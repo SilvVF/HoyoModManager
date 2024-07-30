@@ -2,6 +2,7 @@ package core.api
 
 import core.model.Character
 import core.model.Game
+import java.io.File
 
 interface DataApi {
 

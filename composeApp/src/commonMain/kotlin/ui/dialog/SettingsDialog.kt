@@ -1,8 +1,6 @@
-package dialog
+package ui.dialog
 
-import LocalDataApi
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.scrollable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -35,15 +33,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
-import core.api.DataApi
 import core.db.DB
 import core.db.MetaData
 import core.model.Game
 import io.github.vinceglb.filekit.compose.rememberDirectoryPickerLauncher
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
-import org.jetbrains.compose.resources.imageResource
 import java.io.File
 
 private suspend fun updateDir(path: String, game: Game) = with(DB.prefsDao) {

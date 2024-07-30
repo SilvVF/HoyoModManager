@@ -49,19 +49,22 @@ import core.db.DB
 import core.model.Character
 import core.model.Game
 import core.model.Game.*
-import dialog.CreateModDialog
-import dialog.SettingsDialog
+import ui.dialog.CreateModDialog
+import ui.dialog.SettingsDialog
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.ui.tooling.preview.Preview
+import ui.AppTheme
 import ui.CharacterToggleList
+import ui.LocalDataApi
 import java.io.File
 
 sealed interface Dialog {
@@ -69,35 +72,27 @@ sealed interface Dialog {
     data object AddMod: Dialog
 }
 
-@Composable
-fun AppTheme(content: @Composable () -> Unit) {
-    MaterialTheme(
-        colors = darkColors(),
-        content = content,
-        typography = MaterialTheme.typography,
-    )
-}
-
 fun combineCharacterFilterState(
-    characters: Flow<Map<Game, Map<Character, List<String>>>>,
     game: Flow<Game>,
     filters: Flow<List<String>>
-) = combine(characters, game, filters) { c, g, f ->
-    val full = c[g]?.toList() ?: emptyList()
-    if (f.isEmpty()) {
-        full
+) = game.flatMapLatest { g ->
+    DB.characterDao.observeByGame(g)
+}.combine(filters) { names, filters ->
+    if (filters.isEmpty()) {
+        names
     } else {
-        full.groupBy { it.first.element }
-            .flatMap { if (it.key !in f) emptyList() else it.value }
+        names
+            .groupBy { it.element }
+            .flatMap { (element, names) ->
+                if (element !in filters) emptyList() else names
+            }
     }
 }
-
-val LocalDataApi = compositionLocalOf<DataApi> { error("Not provided") }
 
 @Composable
 fun AppContent(
     modifier: Modifier = Modifier,
-    characters: List<Pair<Character, List<String>>>,
+    characters: List<Character>,
     filters: SnapshotStateList<String>,
     createMod: (File, Character) -> Unit
 ) {
@@ -134,7 +129,7 @@ fun AppContent(
         CharacterToggleList(
             modifier = Modifier.fillMaxSize(),
             paddingValues = paddingValues,
-            charactersWithMods = characters,
+            characters = characters,
             game = LocalDataApi.current.game
         )
     }
@@ -143,12 +138,9 @@ fun AppContent(
     when(currentDialog) {
         null -> Unit
         Dialog.AddMod -> {
-            val characterList by remember {
-                derivedStateOf { characters.map { it.first } }
-            }
             CreateModDialog(
                 onDismissRequest = dismiss,
-                characters = characterList,
+                characters = characters,
                 createMod = { file, character ->
                     dismiss()
                     createMod(file, character)
@@ -172,9 +164,8 @@ fun App() {
         val snackbarHostState = LocalSnackBarHostState.current
         var game by remember { mutableStateOf(Genshin) }
 
-        val characters by produceState<List<Pair<Character, List<String>>>>(emptyList()) {
+        val characters by produceState<List<Character>>(emptyList()) {
             combineCharacterFilterState(
-                CharacterSync.stats,
                 snapshotFlow { game },
                 snapshotFlow { filters.toList() }
             )

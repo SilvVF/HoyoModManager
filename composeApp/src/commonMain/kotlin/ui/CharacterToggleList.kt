@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -20,7 +19,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -36,7 +34,6 @@ import androidx.compose.material.Card
 import androidx.compose.material.Chip
 import androidx.compose.material.Divider
 import androidx.compose.material.DropdownMenu
-import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material.Icon
 import androidx.compose.material.IconButton
 import androidx.compose.material.MaterialTheme
@@ -52,7 +49,6 @@ import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Menu
-import androidx.compose.material.primarySurface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -67,10 +63,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastForEach
 import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupProperties
 import core.db.DB
+import core.db.Mod
 import core.db.ModWithTags
 import core.model.Character
 import core.model.Game
@@ -78,15 +77,18 @@ import core.model.Tag
 import core.renameFolder
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.launch
-import kotlin.math.exp
+import kotlinx.coroutines.withContext
+import ui.widget.ChangeTextPopup
+import java.nio.file.Paths
 
 @Composable
 fun CharacterToggleList(
     modifier: Modifier = Modifier,
     paddingValues: PaddingValues,
-    charactersWithMods: List<Pair<Character, List<String>>>,
+    characters: List<Character>,
     game: Game,
 ) {
     val lazyGridState = rememberLazyGridState()
@@ -100,12 +102,21 @@ fun CharacterToggleList(
             columns = GridCells.Fixed(3),
             contentPadding = paddingValues
         ) {
-            items(charactersWithMods, key = { it.first.id }) { (character, files) ->
+            items(characters, key = { it.id }) { character ->
 
                 var expanded by rememberSaveable { mutableStateOf(false) }
 
                 val onBackground = remember { Color(0xff030712) }
                 val typeColor = remember { Color(0xff111827) }
+
+                val mods by produceState<List<ModWithTags>>(emptyList()) {
+                    withContext(Dispatchers.IO) {
+                        DB.modDao.observeModsWithTags(character.name, game.data)
+                            .collect { modsWithTags ->
+                                withContext(Dispatchers.Main) { value = modsWithTags }
+                            }
+                    }
+                }
 
                 Card(Modifier.padding(8.dp)) {
                     BoxWithConstraints(Modifier.background(Brush.verticalGradient(listOf(onBackground, typeColor)))) {
@@ -122,10 +133,9 @@ fun CharacterToggleList(
                                         ) { expanded = !expanded },
                                 )
                                 FileToggles(
-                                    fileNames = files,
                                     modifier = Modifier.fillMaxWidth().heightIn(max = 300.dp),
+                                    mods = mods,
                                     scope = scope,
-                                    game = game
                                 )
                             }
                         } else {
@@ -144,10 +154,9 @@ fun CharacterToggleList(
                                         ) { expanded = !expanded },
                                 )
                                 FileToggles(
-                                    fileNames = files,
+                                    mods = mods,
                                     modifier = Modifier.fillMaxSize(),
                                     scope = scope,
-                                    game = game
                                 )
                             }
                         }
@@ -169,12 +178,12 @@ fun CharacterToggleList(
 
 @Composable
 fun FileToggles(
-    fileNames: List<String>,
-    game: Game,
+    mods: List<ModWithTags>,
     modifier: Modifier = Modifier,
     scope: CoroutineScope = rememberCoroutineScope(),
 ) {
-    if (fileNames.isEmpty()) {
+
+    if (mods.isEmpty()) {
         Box(Modifier.fillMaxSize()) {
             Text("No mods", Modifier.align(Alignment.Center))
         }
@@ -182,15 +191,6 @@ fun FileToggles(
     }
 
     val lazyColState = rememberLazyListState()
-
-    val mods by produceState<List<ModWithTags>>(emptyList()) {
-        snapshotFlow { fileNames }.flatMapLatest { files ->
-            DB.modDao.observeModsWithTags(files,  game.data)
-        }.collect { modsWithTags ->
-            value = modsWithTags
-        }
-    }
-
     Box(modifier) {
         LazyColumn(Modifier.fillMaxSize(), state = lazyColState) {
             mods.fastForEach { (mod, tags) ->
@@ -211,7 +211,7 @@ fun FileToggles(
                                 modifier = Modifier.weight(1f)
                             )
                             ModActionDropdownMenu(
-                                fileName = mod.fileName,
+                                mod = mod,
                                 dropDownExpanded = dropDownExpanded,
                                 toggleExpanded = { dropDownExpanded = !dropDownExpanded },
                             )
@@ -255,7 +255,7 @@ private sealed interface ModPopup {
 
 @Composable
 private fun ModActionDropdownMenu(
-    fileName: String,
+    mod: Mod,
     dropDownExpanded: Boolean,
     toggleExpanded: () -> Unit,
     modifier: Modifier = Modifier
@@ -276,14 +276,19 @@ private fun ModActionDropdownMenu(
 
     currentPopup?.let { popup ->
         Popup(
-            onDismissRequest = dismiss
+            onDismissRequest = dismiss,
+            properties = PopupProperties(
+                focusable = true
+            ),
+            onPreviewKeyEvent = { false },
+            onKeyEvent = { false }
         ) {
             Surface(
                 Modifier.padding(22.dp)
             ) {
                 ModActionPopups(
                     popup,
-                    fileName,
+                    mod,
                     dismiss,
                     scope
                 )
@@ -301,15 +306,24 @@ private fun ModActionDropdownMenu(
             onDismissRequest = toggleExpanded,
         ) {
             iconButton(
-                { currentPopup = ModPopup.EditName },
+                {
+                    currentPopup = ModPopup.EditName
+                    toggleExpanded()
+                },
                 Icons.Outlined.Edit
             )
             iconButton(
-                { currentPopup = ModPopup.AddTag },
+                {
+                    currentPopup = ModPopup.AddTag
+                    toggleExpanded()
+                },
                 Icons.Outlined.Add
             )
             iconButton(
-                { currentPopup = ModPopup.Delete },
+                {
+                    currentPopup = ModPopup.Delete
+                    toggleExpanded()
+                },
                 Icons.Outlined.Delete
             )
         }
@@ -319,7 +333,7 @@ private fun ModActionDropdownMenu(
 @Composable
 private fun ModActionPopups(
     popup: ModPopup,
-    fileName: String,
+    mod: Mod,
     dismiss: () -> Unit,
     scope: CoroutineScope,
     modifier: Modifier = Modifier
@@ -344,7 +358,7 @@ private fun ModActionPopups(
                                 if (text.isEmpty())
                                     return@launch
 
-                                DB.tagDao.insert(Tag(fileName, text))
+                                DB.tagDao.insert(Tag(mod.id, text))
                             }
                             dismiss()
                         }
@@ -374,29 +388,31 @@ private fun ModActionPopups(
                 }
             }
         }
-
         ModPopup.EditName -> {
-            var text by remember { mutableStateOf("") }
-            Column(modifier) {
-                TextField(
-                    onValueChange = { text = it },
-                    value = text
-                )
-                Row {
-                    TextButton(
-                        onClick = dismiss
-                    ) {
-                        Text("Cancel")
+
+            var name by remember { mutableStateOf(mod.fileName) }
+            val dataApi = LocalDataApi.current
+
+            ChangeTextPopup(
+                value = name,
+                surfaceColor = Color.Transparent,
+                message = { Message("Rename the mod folder.") },
+                onValueChange = { name = it },
+                onCancel = dismiss,
+                onConfirm = {
+                    scope.launch(NonCancellable + Dispatchers.IO) {
+                        val filePath = Paths.get(CharacterSync.rootDir.path, dataApi.game.subPath, mod.character, mod.fileName)
+                        renameFolder(filePath.toFile(), name)
+                            .onFailure { it.printStackTrace() }
+                            .onSuccess { renamed ->
+                                DB.modDao.update(
+                                    mod.copy(fileName = renamed.name)
+                                )
+                            }
                     }
-                    Button(
-                        onClick = {
-                            dismiss()
-                        }
-                    ) {
-                        Text("Confirm")
-                    }
+                    dismiss()
                 }
-            }
+            )
         }
     }
 }
@@ -410,13 +426,13 @@ private fun TagsList(
     Box {
         val lazyRowState = rememberLazyListState()
         LazyRow(
-            Modifier.fillMaxWidth(),
+            modifier.fillMaxWidth(),
             state = lazyRowState,
             contentPadding = PaddingValues(horizontal = 32.dp)
         ) {
             items(
                 tags,
-                key = { it.name + it.fileName }
+                key = { it.name }
             ) { tag ->
                 Chip(
                     onClick = {},

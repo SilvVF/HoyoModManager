@@ -1,21 +1,18 @@
 import core.api.DataApi
-import core.api.GenshinApi
 import core.db.DB
-import core.db.ModEntity
+import core.db.Mod
 import core.model.Character
 import core.model.Game
-import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.io.File
 
 object CharacterSync {
-
-    val stats = MutableStateFlow<Map<Game, Map<Character, List<String>>>>(emptyMap())
 
     private val modDao = DB.modDao
     private val characterDao = DB.characterDao
@@ -73,20 +70,13 @@ object CharacterSync {
         }
 
         modDao.deleteUnused(used = seenMods.toList(), game = dataApi.game.data)
-
-        stats.update { stats ->
-            stats.toMutableMap().apply {
-                this[dataApi.game] = newStats
-            }
-                .toMap()
-        }
     }
 
 
     private suspend fun updateMod(file: File, character: Character, modDirFiles: List<File>) {
         modDao.insert(
-            ModEntity(
-                id = character.id,
+            Mod(
+                characterId = character.id,
                 game = character.game.data,
                 character = character.name,
                 fileName = file.name,
