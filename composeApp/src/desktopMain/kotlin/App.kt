@@ -66,6 +66,7 @@ import ui.AppTheme
 import ui.CharacterToggleList
 import ui.LocalDataApi
 import java.io.File
+import java.nio.file.Paths
 
 sealed interface Dialog {
     data object Settings: Dialog
@@ -278,13 +279,13 @@ fun GenerateButton(
             val selected = DB.modDao.selectEnabledForGame(dataApi.game.data)
 
             selected.forEach { mod ->
-                val filepath = dataApi.game.toString() + File.separator + mod.character + File.separator + mod.fileName
-                val modFile = File(CharacterSync.rootDir, filepath)
-                modFile.copyRecursively(File(exportDir, mod.fileName), overwrite = true)
+                val filepath = Paths.get(CharacterSync.rootDir.path, dataApi.game.name, mod.character, mod.fileName)
+                filepath.toFile().copyRecursively(File(exportDir, mod.fileName), overwrite = true)
             }
 
             exportDir.listFiles()?.forEach { file ->
                 when {
+                    file.isFile -> Unit
                     file.name == "BufferValues" -> Unit
                     file.extension == "exe" -> Unit
                     file.name !in selected.map { it.fileName } -> {

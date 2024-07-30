@@ -5,6 +5,10 @@ import androidx.compose.foundation.LocalScrollbarStyle
 import androidx.compose.foundation.VerticalScrollbar
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.draggable2D
+import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -17,6 +21,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.wrapContentSize
@@ -63,7 +68,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastForEach
 import androidx.compose.ui.window.Popup
@@ -83,6 +90,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import ui.widget.ChangeTextPopup
 import java.nio.file.Paths
+import kotlin.math.roundToInt
 
 @Composable
 fun CharacterToggleList(
@@ -275,24 +283,33 @@ private fun ModActionDropdownMenu(
     val dismiss = { currentPopup = null }
 
     currentPopup?.let { popup ->
+
+        var offsetX by remember { mutableStateOf(0f) }
+        var offsetY by remember { mutableStateOf(0f) }
+
         Popup(
             onDismissRequest = dismiss,
             properties = PopupProperties(
                 focusable = true
             ),
             onPreviewKeyEvent = { false },
-            onKeyEvent = { false }
+            onKeyEvent = { false },
+            offset = IntOffset(offsetX.roundToInt(), offsetY.roundToInt())
         ) {
-            Surface(
-                Modifier.padding(22.dp)
-            ) {
-                ModActionPopups(
-                    popup,
-                    mod,
-                    dismiss,
-                    scope
-                )
-            }
+            ModActionPopups(
+                popup,
+                mod,
+                dismiss,
+                scope,
+                modifier = Modifier
+                    .pointerInput(Unit) {
+                        detectDragGestures { change, dragAmount ->
+                            change.consume()
+                            offsetX += dragAmount.x
+                            offsetY += dragAmount.y
+                        }
+                    }
+            )
         }
     }
 
@@ -338,81 +355,77 @@ private fun ModActionPopups(
     scope: CoroutineScope,
     modifier: Modifier = Modifier
 ) {
-    when(popup) {
-        ModPopup.AddTag -> {
-            var text by remember { mutableStateOf("") }
-            Column(modifier) {
-                TextField(
+    Box(modifier) {
+        when(popup) {
+            ModPopup.AddTag -> {
+                var text by remember { mutableStateOf("") }
+                ChangeTextPopup(
+                    value = text,
+                    message = { Message("Add a tag to this mod.") },
                     onValueChange = { text = it },
-                    value = text
-                )
-                Row {
-                    TextButton(
-                        onClick = dismiss
-                    ) {
-                        Text("Cancel")
-                    }
-                    Button(
-                        onClick = {
-                            scope.launch(Dispatchers.IO) {
-                                if (text.isEmpty())
-                                    return@launch
-
+                    onCancel = dismiss,
+                    onConfirm = {
+                        scope.launch(Dispatchers.IO) {
+                            try {
                                 DB.tagDao.insert(Tag(mod.id, text))
+                            } catch (_: Exception) {
                             }
-                            dismiss()
                         }
-                    ) {
-                        Text("Confirm")
+                        dismiss()
+                    }
+                )
+            }
+
+            ModPopup.Delete -> {
+                Column {
+                    Text("this will also delete the mod file")
+                    Row {
+                        TextButton(
+                            onClick = dismiss
+                        ) {
+                            Text("Cancel")
+                        }
+                        Button(
+                            onClick = {
+                                dismiss()
+                            }
+                        ) {
+                            Text("Confirm")
+                        }
                     }
                 }
             }
-        }
 
-        ModPopup.Delete -> {
-            Column(modifier) {
-                Text("this will also delete the mod file")
-                Row {
-                    TextButton(
-                        onClick = dismiss
-                    ) {
-                        Text("Cancel")
-                    }
-                    Button(
-                        onClick = {
-                            dismiss()
+            ModPopup.EditName -> {
+
+                var name by remember { mutableStateOf(mod.fileName) }
+                val dataApi = LocalDataApi.current
+
+                ChangeTextPopup(
+                    value = name,
+                    message = { Message("Rename the mod folder.") },
+                    onValueChange = { name = it },
+                    onCancel = dismiss,
+                    onConfirm = {
+                        scope.launch(NonCancellable + Dispatchers.IO) {
+                            val filePath = Paths.get(
+                                CharacterSync.rootDir.path,
+                                dataApi.game.subPath,
+                                mod.character,
+                                mod.fileName
+                            )
+                            renameFolder(filePath.toFile(), name)
+                                .onFailure { it.printStackTrace() }
+                                .onSuccess { renamed ->
+                                    DB.modDao.update(
+                                        mod.copy(fileName = renamed.name)
+                                    )
+                                }
                         }
-                    ) {
-                        Text("Confirm")
+                        dismiss()
                     }
-                }
+                )
             }
-        }
-        ModPopup.EditName -> {
-
-            var name by remember { mutableStateOf(mod.fileName) }
-            val dataApi = LocalDataApi.current
-
-            ChangeTextPopup(
-                value = name,
-                surfaceColor = Color.Transparent,
-                message = { Message("Rename the mod folder.") },
-                onValueChange = { name = it },
-                onCancel = dismiss,
-                onConfirm = {
-                    scope.launch(NonCancellable + Dispatchers.IO) {
-                        val filePath = Paths.get(CharacterSync.rootDir.path, dataApi.game.subPath, mod.character, mod.fileName)
-                        renameFolder(filePath.toFile(), name)
-                            .onFailure { it.printStackTrace() }
-                            .onSuccess { renamed ->
-                                DB.modDao.update(
-                                    mod.copy(fileName = renamed.name)
-                                )
-                            }
-                    }
-                    dismiss()
-                }
-            )
         }
     }
 }
