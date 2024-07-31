@@ -31,6 +31,9 @@ interface CharacterDao {
     @Query("DELETE FROM character WHERE id = :id AND game = :game")
     suspend fun delete(id: Int, game: Game)
 
+    @Query("SELECT name FROM character WHERE game = :game")
+    suspend fun selectNamesByGame(game: Game): List<String>
+
     @Query("SELECT * FROM character WHERE game = :game")
     suspend fun selectByGame(game: Game): List<Character>
 

@@ -57,14 +57,22 @@ private suspend fun updateDir(path: String, game: Game) = with(DB.prefsDao) {
         )
     }
     val dir = File(path)
-    val folders = dir.listFiles()?.map { it.name } ?: emptyList()
-
-    DB.modDao.selectAllByGame(game.data).forEach {
-        if (it.fileName !in folders) {
-            DB.modDao.update(it.copy(enabled = false))
-        } else {
-            DB.modDao.update(it.copy(enabled = true))
+    val idToFileName = runCatching {
+        buildList {
+            for (folder in dir.listFiles()!!) {
+                val (modId, fileName) = folder.name.split("_")
+                add(modId.toInt() to fileName)
+            }
         }
+    }
+        .getOrDefault(emptyList())
+
+
+
+    for((id, _) in idToFileName) {
+        val mod = DB.modDao.selectById(id) ?: continue
+
+        DB.modDao.update(mod.copy(enabled = true))
     }
 }
 

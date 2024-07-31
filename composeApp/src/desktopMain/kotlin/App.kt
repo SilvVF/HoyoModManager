@@ -49,6 +49,7 @@ import core.db.DB
 import core.model.Character
 import core.model.Game
 import core.model.Game.*
+import core.seperate
 import ui.dialog.CreateModDialog
 import ui.dialog.SettingsDialog
 import kotlinx.coroutines.CoroutineScope
@@ -278,20 +279,20 @@ fun GenerateButton(
             val exportDir = File(DB.prefsDao.select()?.exportModDir?.get(dataApi.game.data) ?: return@launch)
             val selected = DB.modDao.selectEnabledForGame(dataApi.game.data)
 
-            selected.forEach { mod ->
-                val filepath = Paths.get(CharacterSync.rootDir.path, dataApi.game.name, mod.character, mod.fileName)
-                filepath.toFile().copyRecursively(File(exportDir, mod.fileName), overwrite = true)
-            }
-
             exportDir.listFiles()?.forEach { file ->
                 when {
-                    file.isFile -> Unit
                     file.name == "BufferValues" -> Unit
                     file.extension == "exe" -> Unit
-                    file.name !in selected.map { it.fileName } -> {
+                    file.isFile -> Unit
+                    else -> {
                         file.deleteRecursively()
                     }
                 }
+            }
+
+            selected.forEach { mod ->
+                val modFile = Paths.get(CharacterSync.rootDir.path, dataApi.game.name, mod.character, mod.fileName).toFile()
+                modFile.copyRecursively(File(exportDir, "${mod.id}_${mod.fileName}"), overwrite = true)
             }
         }.invokeOnCompletion { loading = false }
     }
