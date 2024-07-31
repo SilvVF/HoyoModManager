@@ -43,6 +43,8 @@ kotlin {
 
             implementation(libs.androidx.room.runtime)
             implementation(libs.sqlite.bundled)
+
+            implementation("org.jsoup:jsoup:1.7.2")
         }
         desktopMain.dependencies {
             api("io.github.qdsfdhvh:image-loader-extension-imageio:1.8.2")

@@ -34,7 +34,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import core.db.DB
-import core.db.MetaData
+import core.model.MetaData
 import core.model.Game
 import io.github.vinceglb.filekit.compose.rememberDirectoryPickerLauncher
 import kotlinx.coroutines.flow.collectLatest

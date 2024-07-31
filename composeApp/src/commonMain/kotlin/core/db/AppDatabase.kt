@@ -9,13 +9,27 @@ import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import core.model.Character
 import core.model.CharacterDao
 import core.model.Game
+import core.model.MetaData
+import core.model.Mod
+import core.model.ModDao
+import core.model.Playlist
+import core.model.PlaylistDao
+import core.model.PlaylistModCrossRef
+import core.model.PrefsDao
 import core.model.Tag
 import core.model.TagDao
 import kotlinx.coroutines.Dispatchers
 import java.io.File
 
 @Database(
-    entities = [Mod::class, MetaData::class, Character::class, Tag::class],
+    entities = [
+        Mod::class,
+        MetaData::class,
+        Character::class,
+        Tag::class,
+        Playlist::class,
+        PlaylistModCrossRef::class
+    ],
     version = 3,
     exportSchema = true
 )
@@ -25,6 +39,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun prefsDao(): PrefsDao
     abstract fun characterDao(): CharacterDao
     abstract fun tagDao(): TagDao
+    abstract fun playlistDao(): PlaylistDao
 }
 
 private const val KEY_VALUE_SEPARATOR = "->"
@@ -69,7 +84,9 @@ class Converters {
 
 object DB {
 
-    private val instance by lazy { getRoomDatabase(getDatabaseBuilder()) }
+    private val instance by lazy(LazyThreadSafetyMode.SYNCHRONIZED) {
+        getRoomDatabase(getDatabaseBuilder())
+    }
 
     val modDao by lazy { instance.modDao() }
 
@@ -78,6 +95,8 @@ object DB {
     val characterDao by lazy { instance.characterDao() }
 
     val tagDao by lazy { instance.tagDao() }
+
+    val playlistDao by lazy { instance.playlistDao() }
 
     private fun getDatabaseBuilder(): RoomDatabase.Builder<AppDatabase> {
         val dbFile = File(OS.getCacheDir(), "hmm.db")

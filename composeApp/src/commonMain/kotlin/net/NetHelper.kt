@@ -12,6 +12,8 @@ import io.ktor.client.request.get
 import io.ktor.client.statement.bodyAsText
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import java.io.File
@@ -35,7 +37,6 @@ object NetHelper {
             publicStorage(FileStorage(cacheFile))
         }
     }
-
 }
 
 suspend inline fun <reified T> GET(url: String, crossinline block: HttpRequestBuilder.() -> Unit = {}): T =

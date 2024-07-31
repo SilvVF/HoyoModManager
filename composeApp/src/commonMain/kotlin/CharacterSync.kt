@@ -1,7 +1,8 @@
 import core.api.DataApi
 import core.db.DB
-import core.db.Mod
+import core.model.Mod
 import core.model.Character
+import core.model.Game
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.Job
@@ -12,6 +13,9 @@ object CharacterSync {
 
     private val modDao = DB.modDao
     private val characterDao = DB.characterDao
+
+    val running = mutableMapOf<Game, Job>()
+    val initialSyncDone = mutableSetOf<Game>()
 
     val rootDir = File(OS.getDataDir(), "mods")
 

@@ -5,10 +5,8 @@ import androidx.room.Dao
 import androidx.room.Delete
 import androidx.room.Entity
 import androidx.room.ForeignKey
-import androidx.room.Index
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
-import core.db.Mod
 
 @Entity(
     primaryKeys = ["mod_id", "name"],

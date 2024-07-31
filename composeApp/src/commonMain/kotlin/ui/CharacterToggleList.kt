@@ -4,12 +4,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.LocalScrollbarStyle
 import androidx.compose.foundation.VerticalScrollbar
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
-import androidx.compose.foundation.gestures.draggable
-import androidx.compose.foundation.gestures.draggable2D
-import androidx.compose.foundation.gestures.rememberDraggableState
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -21,7 +16,6 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.wrapContentSize
@@ -42,11 +36,9 @@ import androidx.compose.material.DropdownMenu
 import androidx.compose.material.Icon
 import androidx.compose.material.IconButton
 import androidx.compose.material.MaterialTheme
-import androidx.compose.material.Surface
 import androidx.compose.material.Switch
 import androidx.compose.material.Text
 import androidx.compose.material.TextButton
-import androidx.compose.material.TextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
@@ -60,24 +52,21 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastForEach
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
 import core.db.DB
-import core.db.Mod
-import core.db.ModWithTags
+import core.model.Mod
+import core.model.ModWithTags
 import core.model.Character
 import core.model.Game
 import core.model.Tag
@@ -85,7 +74,6 @@ import core.renameFolder
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
-import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import ui.widget.ChangeTextPopup
@@ -97,6 +85,7 @@ fun CharacterToggleList(
     modifier: Modifier = Modifier,
     paddingValues: PaddingValues,
     characters: List<Character>,
+    onCharacterIconClick: (character: Character) -> Unit,
     game: Game,
 ) {
     val lazyGridState = rememberLazyGridState()
@@ -111,8 +100,6 @@ fun CharacterToggleList(
             contentPadding = paddingValues
         ) {
             items(characters, key = { it.id }) { character ->
-
-                var expanded by rememberSaveable { mutableStateOf(false) }
 
                 val onBackground = remember { Color(0xff030712) }
                 val typeColor = remember { Color(0xff111827) }
@@ -132,13 +119,10 @@ fun CharacterToggleList(
                             Column(Modifier.fillMaxWidth()) {
                                 CharacterImage(
                                     character = character,
+                                    onIconClick = { onCharacterIconClick(character) },
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .aspectRatio(3f / 4f)
-                                        .clickable(
-                                            indication = null,
-                                            interactionSource = remember { MutableInteractionSource() }
-                                        ) { expanded = !expanded },
+                                        .aspectRatio(3f / 4f),
                                 )
                                 FileToggles(
                                     modifier = Modifier.fillMaxWidth().heightIn(max = 300.dp),
@@ -154,12 +138,9 @@ fun CharacterToggleList(
                             ) {
                                 CharacterImage(
                                     character = character,
+                                    onIconClick = { onCharacterIconClick(character) },
                                     modifier = Modifier
-                                        .aspectRatio(3f / 4f)
-                                        .clickable(
-                                            indication = null,
-                                            interactionSource = remember { MutableInteractionSource() }
-                                        ) { expanded = !expanded },
+                                        .aspectRatio(3f / 4f),
                                 )
                                 FileToggles(
                                     mods = mods,
@@ -431,7 +412,7 @@ private fun ModActionPopups(
 }
 
 @Composable
-private fun TagsList(
+fun TagsList(
     tags: List<Tag>,
     scope: CoroutineScope,
     modifier: Modifier = Modifier

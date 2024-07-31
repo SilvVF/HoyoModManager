@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 3,
-    "identityHash": "5ec69929d4ba4a8cebb647b00affab29",
+    "identityHash": "29078f39ac46d85896e24514e4b4290f",
     "entities": [
       {
         "tableName": "mod",
@@ -190,11 +190,90 @@
             ]
           }
         ]
+      },
+      {
+        "tableName": "Playlist",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`playlistId` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `name` TEXT NOT NULL, `game` INTEGER NOT NULL)",
+        "fields": [
+          {
+            "fieldPath": "playlistId",
+            "columnName": "playlistId",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "name",
+            "columnName": "name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "game",
+            "columnName": "game",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "playlistId"
+          ]
+        }
+      },
+      {
+        "tableName": "PlaylistModCrossRef",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`playlistId` INTEGER NOT NULL, `id` INTEGER NOT NULL, PRIMARY KEY(`playlistId`, `id`), FOREIGN KEY(`id`) REFERENCES `mod`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE , FOREIGN KEY(`playlistId`) REFERENCES `Playlist`(`playlistId`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "playlistId",
+            "columnName": "playlistId",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "playlistId",
+            "id"
+          ]
+        },
+        "foreignKeys": [
+          {
+            "table": "mod",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "id"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          },
+          {
+            "table": "Playlist",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "playlistId"
+            ],
+            "referencedColumns": [
+              "playlistId"
+            ]
+          }
+        ]
       }
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '5ec69929d4ba4a8cebb647b00affab29')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '29078f39ac46d85896e24514e4b4290f')"
     ]
   }
 }

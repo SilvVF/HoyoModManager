@@ -67,8 +67,9 @@ fun CreateModDialog(
                 var expanded by remember { mutableStateOf(false) }
                 var selectedIndex by remember {
                     mutableStateOf(
-                        characters.indexOf(initialCharacter)
-                            .takeIf { it != -1 } ?: 0
+                        initialCharacter?.let {
+                            characters.indexOfFirst { it.id == initialCharacter.id }
+                        } ?: 0
                     )
                 }
                 var selectedDir by remember { mutableStateOf<File?>(null) }

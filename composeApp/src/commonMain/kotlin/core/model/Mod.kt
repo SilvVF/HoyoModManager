@@ -1,4 +1,4 @@
-package core.db
+package core.model
 
 import androidx.room.ColumnInfo
 import androidx.room.Dao
@@ -13,7 +13,6 @@ import androidx.room.Query
 import androidx.room.Relation
 import androidx.room.Transaction
 import androidx.room.Update
-import core.model.Tag
 import kotlinx.coroutines.flow.Flow
 
 @Entity(
@@ -42,13 +41,6 @@ data class Mod(
 
     @PrimaryKey(autoGenerate = true)
     val id: Int = 0
-)
-
-data class ModUpdate(
-    val id: Int,
-    val character: String? = null,
-    val fileName: String? = null,
-    val enabled: Boolean? = null
 )
 
 data class ModWithTags(
@@ -116,4 +108,8 @@ interface ModDao {
     @Transaction
     @Query("SELECT * FROM mod WHERE character = :character AND game = :game")
     fun observeModsWithTags(character: String, game: Byte): Flow<List<ModWithTags>>
+
+    @Transaction
+    @Query("SELECT * FROM mod WHERE game = :game")
+    fun observeAllModsWithTags(game: Byte): Flow<List<ModWithTags>>
 }

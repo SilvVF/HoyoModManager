@@ -60,6 +60,7 @@ fun <T> List<T>.toggle(element: T): List<T> {
     return if(this.contains(element)) this - element else this + element
 }
 
+
 fun <T> SnapshotStateList<T>.toggle(element: T): Boolean {
     return if(this.contains(element)) this.remove(element) else this.add(element)
 }

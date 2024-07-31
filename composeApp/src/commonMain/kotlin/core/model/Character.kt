@@ -45,9 +45,11 @@ interface CharacterDao {
                 insert(character)
             }
         }
-        selectByGame(characters.first().game)
-            .filter { it !in characters }
-            .onEach { delete(it.id, it.game) }
+        if (characters.isNotEmpty()) {
+            selectByGame(characters.first().game)
+                .filter { it !in characters }
+                .onEach { delete(it.id, it.game) }
+        }
     }
 
     @Query("DELETE FROM character WHERE id = :id AND game = :game")

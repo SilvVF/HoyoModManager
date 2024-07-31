@@ -1,6 +1,7 @@
 package ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -41,6 +42,7 @@ import kotlin.random.Random
 @Composable
 fun CharacterImage(
     character: Character,
+    onIconClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val modCount by produceState(0) {
@@ -69,7 +71,10 @@ fun CharacterImage(
                 .clip(CircleShape)
                 .background(
                     Brush.verticalGradient(listOf(MaterialTheme.colors.surface, gradientColor))
-                ),
+                )
+                .clickable {
+                    onIconClick()
+                },
             contentScale = ContentScale.FillWidth,
             contentDescription = null
         )

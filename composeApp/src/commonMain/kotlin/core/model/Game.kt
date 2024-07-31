@@ -1,5 +1,11 @@
 package core.model
 
+import androidx.compose.material.Icon
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.FavoriteBorder
+import androidx.compose.material.icons.outlined.PlayArrow
+import androidx.compose.material.icons.outlined.Star
+import androidx.compose.runtime.Composable
 import core.db.DB
 
 enum class Game(val data: Byte) {
@@ -8,6 +14,13 @@ enum class Game(val data: Byte) {
     ZZZ(0x03);
 
     val subPath: String = this.name
+
+    @Composable
+    fun UiIcon() = when(this) {
+        Genshin -> Icon(imageVector = Icons.Outlined.Star, contentDescription = this.name)
+        StarRail -> Icon(imageVector = Icons.Outlined.FavoriteBorder, contentDescription = this.name)
+        ZZZ -> Icon(imageVector = Icons.Outlined.PlayArrow, contentDescription = this.name)
+    }
 
     companion object {
 
