@@ -45,6 +45,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import core.api.DataApi
 import core.api.GenshinApi
+import core.api.StarRailApi
 import core.db.DB
 import core.model.Character
 import core.model.Game
@@ -96,19 +97,21 @@ fun AppContent(
     modifier: Modifier = Modifier,
     characters: List<Character>,
     filters: SnapshotStateList<String>,
-    createMod: (File, Character) -> Unit
+    createMod: (File, Character) -> Unit,
+    refresh: () -> Unit,
 ) {
     var currentDialog by remember { mutableStateOf<Dialog?>(null) }
 
     Scaffold(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier,
         snackbarHost = {
             SnackbarHost(LocalSnackBarHostState.current)
         },
         topBar = {
             CharacterListTopBar(
                 filters = filters,
-                setDialog = { currentDialog = it }
+                setDialog = { currentDialog = it },
+                refresh = refresh
             )
         },
         floatingActionButton = {
@@ -162,9 +165,9 @@ fun App() {
 
         val scope = rememberCoroutineScope()
         val filters = remember { mutableStateListOf<String>() }
-        val syncTrigger = remember { Channel<Unit>() }
+        val syncTrigger = remember { Channel<Boolean>() }
         val snackbarHostState = LocalSnackBarHostState.current
-        var game by remember { mutableStateOf(Genshin) }
+        var game by remember { mutableStateOf(StarRail) }
 
         val characters by produceState<List<Character>>(emptyList()) {
             combineCharacterFilterState(
@@ -179,7 +182,7 @@ fun App() {
             LocalDataApi provides remember(game) {
                 when (game) {
                     Genshin -> GenshinApi
-                    StarRail -> error("")
+                    StarRail -> StarRailApi
                     ZZZ -> error("")
                 }
             }
@@ -189,35 +192,39 @@ fun App() {
                 modifier = Modifier.fillMaxSize(),
                 characters = characters,
                 filters = filters,
+                refresh = {
+                    syncTrigger.trySend(true)
+                },
                 createMod = { file, character ->
                     scope.launch(NonCancellable + Dispatchers.IO) {
                         try {
                             val path = dataApi.game.toString() + File.separator + character.name + File.separator + file.name
                             val modFile = File(CharacterSync.rootDir, path)
                             file.copyRecursively(modFile, overwrite = true)
-                            syncTrigger.send(Unit)
+                            syncTrigger.send(false)
                         } catch (e: Exception) {
                             e.printStackTrace()
                         }
                     }
                 })
-        }
-        LaunchedEffect(Unit) {
-            syncTrigger.receiveAsFlow().onStart { emit(Unit) }
-                .collect {
-                    val job = CharacterSync.sync(GenshinApi)
-                    launch {
-                        snackbarHostState.showSnackbar(
-                            "Refreshing",
-                            duration = SnackbarDuration.Indefinite
-                        )
-                    }
-                    runCatching { job.join() }
 
-                    if (snackbarHostState.currentSnackbarData?.message == "Refreshing") {
-                        snackbarHostState.currentSnackbarData?.dismiss()
+            LaunchedEffect(dataApi) {
+                syncTrigger.receiveAsFlow().onStart { emit(false) }
+                    .collect { forceNetork ->
+                        val job = CharacterSync.sync(dataApi = dataApi, fromNetwork = forceNetork)
+                        launch {
+                            snackbarHostState.showSnackbar(
+                                "Refreshing",
+                                duration = SnackbarDuration.Indefinite
+                            )
+                        }
+                        runCatching { job.join() }
+
+                        if (snackbarHostState.currentSnackbarData?.message == "Refreshing") {
+                            snackbarHostState.currentSnackbarData?.dismiss()
+                        }
                     }
-                }
+            }
         }
     }
 }
@@ -226,7 +233,8 @@ fun App() {
 fun CharacterListTopBar(
     modifier: Modifier = Modifier,
     filters: SnapshotStateList<String>,
-    setDialog: (Dialog) -> Unit
+    setDialog: (Dialog) -> Unit,
+    refresh: () -> Unit
 ) {
     TopAppBar(
         title = { Text("Filters") },
@@ -255,6 +263,12 @@ fun CharacterListTopBar(
                     }
                 }
             }
+            IconButton(onClick = refresh) {
+                Icon(
+                    imageVector = Icons.Outlined.Refresh,
+                    contentDescription = "refresh"
+                )
+            }
             IconButton(onClick = { setDialog(Dialog.Settings) }) {
                 Icon(
                     imageVector = Icons.Outlined.Settings,
@@ -262,6 +276,7 @@ fun CharacterListTopBar(
                 )
             }
         },
+        modifier = modifier
     )
 }
 

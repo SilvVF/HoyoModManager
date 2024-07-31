@@ -2,13 +2,9 @@ import core.api.DataApi
 import core.db.DB
 import core.db.Mod
 import core.model.Character
-import core.model.Game
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.io.File
 
@@ -28,11 +24,9 @@ object CharacterSync {
         val seenMods = mutableSetOf<String>()
 
         val fetchFromNetwork = suspend {
-            dataApi.characterList()
-                .map { name ->
-                    dataApi.characterData(name.removeSurrounding("\""))
-                        .also { characterDao.insert(it) }
-                }
+            dataApi.characterList().also {
+                characterDao.updateFromCharacters(it)
+            }
         }
 
         val characters = if (fromNetwork) {

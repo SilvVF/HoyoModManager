@@ -6,6 +6,7 @@ import androidx.room.Entity
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Transaction
 import androidx.room.Update
 import kotlinx.coroutines.flow.Flow
 
@@ -25,8 +26,29 @@ interface CharacterDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(character: Character)
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insert(character: List<Character>)
+
     @Update
     suspend fun update(character: Character)
+
+    @Query("SELECT * FROM character WHERE id = :id AND game = :game LIMIT 1")
+    suspend fun selectById(id: Int, game: Game): Character?
+
+    @Transaction
+    suspend fun updateFromCharacters(characters: List<Character>) {
+        for (character in characters) {
+            val existing = selectById(character.id, character.game)
+            if (existing != null)  {
+                update(character)
+            } else {
+                insert(character)
+            }
+        }
+        selectByGame(characters.first().game)
+            .filter { it !in characters }
+            .onEach { delete(it.id, it.game) }
+    }
 
     @Query("DELETE FROM character WHERE id = :id AND game = :game")
     suspend fun delete(id: Int, game: Game)

@@ -15,11 +15,15 @@ object GenshinApi: DataApi {
 
     override val game: Game = Game.Genshin
 
-    override suspend fun characterList(): List<String> {
+    override suspend fun characterList(): List<Character> {
         val json = GET<JsonArray>("https://api.github.com/repos/theBowja/genshin-db/contents/src/data/English/characters")
         return List(json.size) {
-            json[it].jsonObject["name"]!!.toString()
+            runCatching {
+                characterData(json[it].jsonObject["name"]!!.toString().removeSurrounding("\""))
+            }
+                .getOrNull()
         }
+            .filterNotNull()
     }
 
     override val elements = listOf("Anemo", "Cryo", "Dendro", "Electro", "Geo", "Hydro", "Pyro")
@@ -31,7 +35,7 @@ object GenshinApi: DataApi {
         }
     }
 
-    override fun avatarIconUrl(name: String): String {
+    private fun avatarIconUrl(name: String): String {
 
         val avatar: (String, String) -> String = { folder, path ->
              "https://raw.githubusercontent.com/frzyc/genshin-optimizer/master/libs/gi/assets/src/gen/chars/$folder/UI_AvatarIcon_$path.png"
@@ -67,7 +71,7 @@ object GenshinApi: DataApi {
         }
     }
 
-    override suspend fun characterData(path: String): Character {
+    private suspend fun characterData(path: String): Character {
         val res: GiCharacter = GET("https://raw.githubusercontent.com/theBowja/genshin-db/main/src/data/English/characters/$path")
         return Character(
             id = res.id,
