@@ -41,6 +41,8 @@ import core.model.Game
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.onEach
@@ -171,10 +173,10 @@ fun GameModListScreen(
                     emit(SyncRequest.Startup)
                 }
             }
-            .collect { req ->
+            .collectLatest { req ->
 
                 if (CharacterSync.running.contains(selectedGame))
-                    return@collect
+                    return@collectLatest
 
                 val (fromNetwork, onComplete) = when(req) {
                     SyncRequest.Startup -> false to {
@@ -186,6 +188,7 @@ fun GameModListScreen(
                     }
                 }
 
+                ensureActive()
                 val job = CharacterSync.sync(dataApi, fromNetwork)
                 CharacterSync.running[selectedGame] = job
 

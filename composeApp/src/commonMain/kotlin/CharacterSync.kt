@@ -72,7 +72,7 @@ object CharacterSync {
 
 
     private suspend fun updateMod(file: File, character: Character, modDirFiles: List<File>) {
-        modDao.insert(
+        modDao.insertOrUpdate(
             Mod(
                 characterId = character.id,
                 game = character.game.data,

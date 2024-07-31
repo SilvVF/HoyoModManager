@@ -100,6 +100,28 @@ interface ModDao {
     @Update
     suspend fun update(mod: Mod)
 
+    @Transaction
+    @Query("""
+        update mod SET 
+            enabled = CASE WHEN id in (:enabled) THEN true ELSE FALSE
+             END
+        WHERE game = :game
+    """)
+    suspend fun enableAndDisable(enabled: List<Int>, game: Game)
+
+    @Query("SELECT * FROM mod WHERE file_name = :fileName AND character = :character LIMIT 1")
+    suspend fun selectByFileNameAndCharacter(fileName: String, character: String): Mod?
+
+    @Transaction
+    suspend fun insertOrUpdate(mod: Mod) {
+        val existing = selectByFileNameAndCharacter(mod.fileName, mod.character)
+        if (existing != null) {
+            update(mod)
+        } else {
+            insert(mod)
+        }
+    }
+
     @Query("""
         SELECT * FROM mod WHERE enabled AND game = :game 
     """)

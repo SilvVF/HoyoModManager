@@ -1,5 +1,6 @@
 package ui
 
+import CharacterSync
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.LocalScrollbarStyle
 import androidx.compose.foundation.VerticalScrollbar
@@ -36,6 +37,7 @@ import androidx.compose.material.DropdownMenu
 import androidx.compose.material.Icon
 import androidx.compose.material.IconButton
 import androidx.compose.material.MaterialTheme
+import androidx.compose.material.Surface
 import androidx.compose.material.Switch
 import androidx.compose.material.Text
 import androidx.compose.material.TextButton
@@ -336,76 +338,104 @@ private fun ModActionPopups(
     scope: CoroutineScope,
     modifier: Modifier = Modifier
 ) {
-    Box(modifier) {
-        when(popup) {
-            ModPopup.AddTag -> {
-                var text by remember { mutableStateOf("") }
-                ChangeTextPopup(
-                    value = text,
-                    message = { Message("Add a tag to this mod.") },
-                    onValueChange = { text = it },
-                    onCancel = dismiss,
-                    onConfirm = {
-                        scope.launch(Dispatchers.IO) {
-                            try {
-                                DB.tagDao.insert(Tag(mod.id, text))
-                            } catch (_: Exception) {
+    var offset by remember { mutableStateOf(IntOffset.Zero)}
+    Popup(
+        alignment = Alignment.Center,
+        offset = offset,
+        properties = PopupProperties(focusable = true),
+    ) {
+        Box(modifier) {
+            when (popup) {
+                ModPopup.AddTag -> {
+                    var text by remember { mutableStateOf("") }
+                    ChangeTextPopup(
+                        value = text,
+                        modifier = Modifier.draggableXY { offset = it },
+                        message = { Message("Add a tag to this mod.") },
+                        onValueChange = { text = it },
+                        onCancel = dismiss,
+                        onConfirm = {
+                            scope.launch(Dispatchers.IO) {
+                                try {
+                                    DB.tagDao.insert(Tag(mod.id, text))
+                                } catch (_: Exception) {
+                                }
                             }
+                            dismiss()
                         }
-                        dismiss()
-                    }
-                )
-            }
+                    )
+                }
 
-            ModPopup.Delete -> {
-                Column {
-                    Text("this will also delete the mod file")
-                    Row {
-                        TextButton(
-                            onClick = dismiss
-                        ) {
-                            Text("Cancel")
-                        }
-                        Button(
-                            onClick = {
-                                dismiss()
+                ModPopup.Delete -> {
+                    Card(
+                        Modifier
+                            .draggableXY { offset = it }
+                            .padding(22.dp)
+                    ) {
+                        Column {
+                            Text("this will also delete the mod file")
+                            Row {
+                                TextButton(
+                                    onClick = dismiss
+                                ) {
+                                    Text("Cancel")
+                                }
+                                Button(
+                                    onClick = {
+                                        scope.launch(NonCancellable + Dispatchers.IO) {
+                                            try {
+                                                val path = Paths.get(
+                                                    CharacterSync.rootDir.path,
+                                                    Game.fromByte(mod.game).name,
+                                                    mod.character,
+                                                    mod.fileName
+                                                )
+                                                path.toFile().deleteRecursively()
+                                                DB.modDao.delete(mod)
+                                            } catch (_: Exception) {
+                                            }
+                                        }
+                                        dismiss()
+                                    }
+                                ) {
+                                    Text("Confirm")
+                                }
                             }
-                        ) {
-                            Text("Confirm")
                         }
                     }
                 }
-            }
 
-            ModPopup.EditName -> {
+                ModPopup.EditName -> {
 
-                var name by remember { mutableStateOf(mod.fileName) }
-                val dataApi = LocalDataApi.current
+                    var name by remember { mutableStateOf(mod.fileName) }
+                    val dataApi = LocalDataApi.current
 
-                ChangeTextPopup(
-                    value = name,
-                    message = { Message("Rename the mod folder.") },
-                    onValueChange = { name = it },
-                    onCancel = dismiss,
-                    onConfirm = {
-                        scope.launch(NonCancellable + Dispatchers.IO) {
-                            val filePath = Paths.get(
-                                CharacterSync.rootDir.path,
-                                dataApi.game.subPath,
-                                mod.character,
-                                mod.fileName
-                            )
-                            renameFolder(filePath.toFile(), name)
-                                .onFailure { it.printStackTrace() }
-                                .onSuccess { renamed ->
-                                    DB.modDao.update(
-                                        mod.copy(fileName = renamed.name)
-                                    )
-                                }
+                    ChangeTextPopup(
+                        value = name,
+                        modifier = Modifier.draggableXY { offset = it },
+                        message = { Message("Rename the mod folder.") },
+                        onValueChange = { name = it },
+                        onCancel = dismiss,
+                        onConfirm = {
+                            scope.launch(NonCancellable + Dispatchers.IO) {
+                                val filePath = Paths.get(
+                                    CharacterSync.rootDir.path,
+                                    dataApi.game.subPath,
+                                    mod.character,
+                                    mod.fileName
+                                )
+                                renameFolder(filePath.toFile(), name)
+                                    .onFailure { it.printStackTrace() }
+                                    .onSuccess { renamed ->
+                                        DB.modDao.update(
+                                            mod.copy(fileName = renamed.name)
+                                        )
+                                    }
+                            }
+                            dismiss()
                         }
-                        dismiss()
-                    }
-                )
+                    )
+                }
             }
         }
     }

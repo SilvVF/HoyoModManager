@@ -3,6 +3,7 @@ package ui.dialog
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -19,6 +20,7 @@ import androidx.compose.material.IconButton
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Text
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -32,11 +34,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.util.fastForEach
 import androidx.compose.ui.window.Dialog
 import core.db.DB
 import core.model.MetaData
 import core.model.Game
 import io.github.vinceglb.filekit.compose.rememberDirectoryPickerLauncher
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import java.io.File
@@ -93,7 +97,24 @@ fun SettingsDialog(
         }
     }
 
+    val ignored by produceState(emptyList()) {
+        DB.prefsDao.observe().collectLatest { prefs ->
+           value = prefs?.keepFilesOnClear.orEmpty()
+        }
+    }
+
     var selectedGame by remember { mutableStateOf<Game?>(null) }
+
+
+    val ignoreLauncher = rememberDirectoryPickerLauncher(
+        title = "select a dir to ignore",
+    ) { directory ->
+        directory?.path?.let {
+            scope.launch(Dispatchers.IO){
+                DB.prefsDao.addIgnoredFolder(path = directory.file.path)
+            }
+        }
+    }
 
     val launcher = rememberDirectoryPickerLauncher(
         title = "Pick a mod dir",
@@ -141,6 +162,45 @@ fun SettingsDialog(
                     Spacer(Modifier.height(12.dp))
                     Divider(Modifier.fillMaxWidth())
                     Spacer(Modifier.height(12.dp))
+                }
+                Row(
+                    Modifier.fillMaxWidth().clip(RoundedCornerShape(22)).clickable { ignoreLauncher.launch() },
+                    horizontalArrangement = Arrangement.Start,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        "Ignore directories on generation",
+                        style = MaterialTheme.typography.h5,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    IconButton(
+                        onClick = { ignoreLauncher.launch() }
+                    ) {
+                        Icon(imageVector = Icons.Outlined.Edit, "Edit")
+                    }
+                }
+                Column {
+                    ignored.fastForEach {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                it,
+                                modifier = Modifier.weight(1f),
+                                style = MaterialTheme.typography.h6
+                            )
+                            IconButton(
+                                onClick = {
+                                    scope.launch(Dispatchers.IO) {
+                                        DB.prefsDao.removeIgnoredFolder(path = it)
+                                    }
+                                }
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Outlined.Delete,
+                                    null
+                                )
+                            }
+                        }
+                    }
                 }
             }
         }

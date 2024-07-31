@@ -5,6 +5,7 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverter
 import androidx.room.TypeConverters
+import androidx.room.util.performInTransactionSuspending
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import core.model.Character
 import core.model.CharacterDao
@@ -18,8 +19,14 @@ import core.model.PlaylistModCrossRef
 import core.model.PrefsDao
 import core.model.Tag
 import core.model.TagDao
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.launch
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import java.io.File
+import kotlin.coroutines.coroutineContext
 
 @Database(
     entities = [
@@ -30,7 +37,7 @@ import java.io.File
         Playlist::class,
         PlaylistModCrossRef::class
     ],
-    version = 3,
+    version = 1,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
@@ -51,9 +58,13 @@ class Converters {
      */
     @TypeConverter
     fun mapToString(map: Map<Byte, String>): String {
-        return map.entries.joinToString(separator = ENTRY_SEPARATOR) {
-            println(it.key.toString() + "encode")
-            "${it.key}$KEY_VALUE_SEPARATOR${it.value}"
+        return try {
+            map.entries.joinToString(separator = ENTRY_SEPARATOR) {
+                println(it.key.toString() + "encode")
+                "${it.key}$KEY_VALUE_SEPARATOR${it.value}"
+            }
+        } catch (e: Exception) {
+            return ""
         }
     }
 
@@ -65,9 +76,13 @@ class Converters {
      */
     @TypeConverter
     fun stringToMap(string: String): Map<Byte, String> {
-        return string.split(ENTRY_SEPARATOR).associate {
-            val (key, value) = it.split(KEY_VALUE_SEPARATOR)
-            (key.toByte()) to value
+        return try {
+            string.split(ENTRY_SEPARATOR).associate {
+                val (key, value) = it.split(KEY_VALUE_SEPARATOR)
+                (key.toByte()) to value
+            }
+        } catch (e: Exception) {
+            return emptyMap()
         }
     }
 
@@ -79,6 +94,16 @@ class Converters {
     @TypeConverter
     fun gameToByte(game: Game): Byte {
         return game.data
+    }
+
+    @TypeConverter
+    fun listToString(list: List<String>): String {
+        return Json.encodeToString(list)
+    }
+
+    @TypeConverter
+    fun stringFromList(string: String): List<String> {
+        return Json.decodeFromString(string)
     }
 }
 
@@ -117,3 +142,4 @@ object DB {
             .build()
     }
 }
+

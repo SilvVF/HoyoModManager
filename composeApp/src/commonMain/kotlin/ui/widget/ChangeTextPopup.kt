@@ -58,12 +58,12 @@ fun ChangeTextPopup(
 ) {
     Card(
         backgroundColor = surfaceColor,
-        modifier = Modifier
+        modifier = modifier
             .wrapContentSize()
             .clip(MaterialTheme.shapes.medium)
     ) {
         Column(
-            modifier.padding(12.dp),
+            Modifier.padding(12.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Box(Modifier.align(Alignment.Start)) {

@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -23,54 +24,64 @@ import androidx.compose.material.Card
 import androidx.compose.material.Divider
 import androidx.compose.material.ExtendedFloatingActionButton
 import androidx.compose.material.Icon
+import androidx.compose.material.IconButton
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Scaffold
 import androidx.compose.material.Switch
 import androidx.compose.material.Text
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Create
+import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
-import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.window.Popup
 import com.seiko.imageloader.ui.AutoSizeImage
 import core.db.DB
-import core.model.ModWithTags
 import core.model.Character
 import core.model.Game
 import core.model.Mod
+import core.model.ModWithTags
+import core.model.Playlist
+import core.model.PlaylistModCrossRef
 import core.model.PlaylistWithMods
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.launch
 import ui.TagsList
+import ui.draggableXY
+import ui.widget.ChangeTextPopup
 import kotlin.random.Random
 
 private sealed interface PlaylistDialog {
     data object LoadPlaylist: PlaylistDialog
+    data class CreatePlaylist(val mods: List<Mod>): PlaylistDialog
+    data class RenamePlaylist(val playlist: Playlist): PlaylistDialog
 }
 
 @Composable
 fun PlaylistScreen(
     modifier: Modifier = Modifier
 ) {
+    val scope = rememberCoroutineScope()
     val game by remember { mutableStateOf(Game.Genshin) }
     var currentDialog by remember { mutableStateOf<PlaylistDialog?>(null) }
 
@@ -108,7 +119,11 @@ fun PlaylistScreen(
                 ExtendedFloatingActionButton(
                     text = { Text("Save") },
                     icon = { Icon(imageVector = Icons.Outlined.Create, null) },
-                    onClick = {},
+                    onClick = {
+                        currentDialog = PlaylistDialog.CreatePlaylist(
+                            mods.map { it.mod }.filter { it.enabled }
+                        )
+                    },
                 )
             }
         }
@@ -135,13 +150,111 @@ fun PlaylistScreen(
                             }
                             return@Card
                         }
-                        LazyColumn(Modifier.fillMaxSize()) {
-                            items(playlists) { (playlist, modsWithTags) ->
-                                Text(playlist.name)
-                                Divider()
+                        LazyColumn(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
+                            items(playlists) { (playlist, mods) ->
+                                Spacer(Modifier.height(6.dp))
+                                Card(Modifier.fillMaxWidth(0.9f)) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        val modNames by remember {
+                                            derivedStateOf { mods.joinToString { it.fileName } }
+                                        }
+
+                                        Column(Modifier.weight(1f).padding(12.dp)) {
+                                            Text(playlist.name, style = MaterialTheme.typography.h6)
+                                            Spacer(Modifier.width(12.dp))
+                                            Text(modNames, style = MaterialTheme.typography.subtitle2)
+                                        }
+                                        IconButton(
+                                            onClick = {
+                                                currentDialog = PlaylistDialog.RenamePlaylist(playlist)
+                                            }
+                                        ) {
+                                            Icon(Icons.Outlined.Edit, null)
+                                        }
+                                        IconButton(
+                                            onClick = {
+                                                scope.launch(Dispatchers.IO) {
+                                                    DB.playlistDao.delete(playlist)
+                                                }
+                                            }
+                                        ) {
+                                            Icon(Icons.Outlined.Delete, null)
+                                        }
+                                        IconButton(
+                                            onClick = {
+                                                scope.launch(Dispatchers.IO) {
+                                                    DB.modDao.enableAndDisable(enabled = mods.map { it.id }, game)
+                                                }
+                                            }
+                                        ) {
+                                            Icon(Icons.Outlined.Add, null)
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
+                }
+            }
+            is PlaylistDialog.CreatePlaylist -> {
+                var text by remember { mutableStateOf("") }
+                var offset by remember { mutableStateOf(IntOffset.Zero)}
+                Popup(
+                    offset = offset,
+                ) {
+                    ChangeTextPopup(
+                        value = text,
+                        modifier = Modifier.draggableXY { intOffset ->
+                            offset = intOffset
+                        },
+                        onValueChange = { text = it },
+                        message = { Message("Create a name for the playlist.") },
+                        onConfirm = {
+                            scope.launch(Dispatchers.IO) {
+                                try {
+                                    val enabled = DB.modDao.selectEnabledForGame(game.data)
+
+                                    val id = DB.playlistDao.insert(
+                                        Playlist(name = text, game = game)
+                                    )
+
+                                    DB.playlistDao.insert(
+                                        enabled.map { PlaylistModCrossRef(id.toInt(), it.id) }
+                                    )
+                                } catch (_: Exception) {
+                                }
+                            }
+                            currentDialog = null
+                        },
+                        onCancel = { currentDialog = null }
+                    )
+                }
+            }
+
+            is PlaylistDialog.RenamePlaylist -> {
+                var text by remember { mutableStateOf("") }
+                var offset by remember { mutableStateOf(IntOffset.Zero)}
+                Popup(
+                    offset = offset,
+                ) {
+                    ChangeTextPopup(
+                        value = text,
+                        modifier = Modifier.draggableXY { intOffset ->
+                            offset = intOffset
+                        },
+                        onValueChange = { text = it },
+                        message = { Message("rename the playlist.") },
+                        onConfirm = {
+                            scope.launch(Dispatchers.IO) {
+                                DB.playlistDao.update(dialog.playlist.copy(name = text))
+                            }
+                            currentDialog = null
+                        },
+                        onCancel = { currentDialog = null }
+                    )
                 }
             }
         }
@@ -207,7 +320,6 @@ fun PlaylistMods(
                         text = mod.fileName,
                         modifier = Modifier.weight(1f)
                     )
-
                     Switch(
                         checked = mod.enabled,
                         onCheckedChange = {

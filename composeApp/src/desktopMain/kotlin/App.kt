@@ -34,6 +34,7 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.composed
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastForEach
 import core.api.DataApi
@@ -142,17 +143,19 @@ fun GenerateButton(
     val generateFiles = {
         loading = true
         scope.launch(NonCancellable + Dispatchers.IO) {
+
             val exportDir = File(DB.prefsDao.select()?.exportModDir?.get(dataApi.game.data) ?: return@launch)
             val selected = DB.modDao.selectEnabledForGame(dataApi.game.data)
+
+            val ignore = DB.prefsDao.select()?.keepFilesOnClear.orEmpty()
 
             exportDir.listFiles()?.forEach { file ->
                 when {
                     file.name == "BufferValues" -> Unit
                     file.extension == "exe" -> Unit
                     file.isFile -> Unit
-                    else -> {
-                        file.deleteRecursively()
-                    }
+                    ignore.contains(file.path) -> Unit
+                    else -> file.deleteRecursively()
                 }
             }
 
