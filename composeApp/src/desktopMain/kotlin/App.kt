@@ -144,7 +144,7 @@ fun GenerateButton(
     var loading by remember { mutableStateOf(false) }
 
     val generateFiles = { copyAll: Int ->
-        val copy = copyAll == 0
+        val copy = copyAll != 0
         loading = true
         scope.launch(NonCancellable + Dispatchers.IO) {
 
