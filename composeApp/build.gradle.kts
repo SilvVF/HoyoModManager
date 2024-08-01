@@ -86,8 +86,10 @@ compose.desktop {
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
             packageName = "io.silv.hmm"
             packageVersion = "1.0.0"
+
+            buildTypes.release.proguard {
+            }
             windows {
-                console = true
             }
         }
     }

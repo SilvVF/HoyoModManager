@@ -159,19 +159,27 @@ fun GenerateButton(
                     file.extension == "exe" -> Unit
                     file.isFile -> Unit
                     ignore.contains(file.path) -> Unit
-                    else -> file.deleteRecursively()
+                    else -> {
+                        runCatching {
+                            val (id, filename) = file.name.split("_")
+                            when  {
+                                selected.find { it.id == id.toInt() }?.fileName != filename ->
+                                    file.deleteRecursively()
+                                else -> Unit
+                            }
+                        }
+                    }
                 }
             }
 
             selected.forEach { mod ->
-                val modFile = Paths.get(CharacterSync.rootDir.path, dataApi.game.name, mod.character, mod.fileName).toFile()
+                runCatching {
+                    val modFile = Paths.get(CharacterSync.rootDir.path, dataApi.game.name, mod.character, mod.fileName).toFile()
 
-                if (modFile.exists() && !copy)
-                    return@forEach
-
-                modFile.copyRecursively(
-                    File(exportDir, "${mod.id}_${mod.fileName}"), overwrite = true
-                )
+                    modFile.copyRecursively(
+                        File(exportDir, "${mod.id}_${mod.fileName}"), overwrite = copy
+                    )
+                }
             }
         }.invokeOnCompletion { loading = false }
     }
