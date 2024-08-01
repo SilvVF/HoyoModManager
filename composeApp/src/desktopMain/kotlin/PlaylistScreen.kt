@@ -106,17 +106,13 @@ fun PlaylistScreen(
                 value = playlistWithMods.map { (playlist, modsWithTags) ->
                     PlaylistWithModsAndTags(
                         playlist,
-                        modsWithTags = modsWithTags.map { (mod, tags) ->
-                            ModWithTags(
-                                mod,
-                                tags
-                            )
+                        mods = modsWithTags.map { (mod, tags) ->
+                            ModWithTags(mod, tags)
                         }
                     )
                 }
             }
     }
-
 
     Scaffold(
         modifier = modifier,

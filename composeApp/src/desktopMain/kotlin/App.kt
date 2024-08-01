@@ -10,7 +10,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.CircularProgressIndicator
+import androidx.compose.material.Divider
 import androidx.compose.material.ExtendedFloatingActionButton
 import androidx.compose.material.FilterChip
 import androidx.compose.material.Icon
@@ -140,7 +143,8 @@ fun GenerateButton(
 ) {
     var loading by remember { mutableStateOf(false) }
 
-    val generateFiles = {
+    val generateFiles = { copyAll: Int ->
+        val copy = copyAll == 0
         loading = true
         scope.launch(NonCancellable + Dispatchers.IO) {
 
@@ -161,34 +165,57 @@ fun GenerateButton(
 
             selected.forEach { mod ->
                 val modFile = Paths.get(CharacterSync.rootDir.path, dataApi.game.name, mod.character, mod.fileName).toFile()
-                modFile.copyRecursively(File(exportDir, "${mod.id}_${mod.fileName}"), overwrite = true)
+
+                if (modFile.exists() && !copy)
+                    return@forEach
+
+                modFile.copyRecursively(
+                    File(exportDir, "${mod.id}_${mod.fileName}"), overwrite = true
+                )
             }
         }.invokeOnCompletion { loading = false }
     }
 
-    ExtendedFloatingActionButton(
-        modifier = modifier,
-        onClick = {
-            if (loading)
-                return@ExtendedFloatingActionButton
-
-            generateFiles()
-        },
-        icon = {
-            if (loading) {
-                CircularProgressIndicator()
-            } else {
-                Icon(
-                    imageVector = Icons.Outlined.Refresh,
-                    contentDescription = "Generate"
+    repeat(2) {
+        ExtendedFloatingActionButton(
+            modifier = modifier,
+            shape = if(it == 0) {
+                RoundedCornerShape(
+                    topStart = 50f,
+                    bottomStart = 50f
                 )
+            } else {
+                RoundedCornerShape(topEnd = 50f, bottomEnd = 50f)
+            },
+            onClick = {
+                if (loading)
+                    return@ExtendedFloatingActionButton
+
+                generateFiles(it)
+            },
+            icon = {
+                if(it != 0)
+                    return@ExtendedFloatingActionButton
+
+                if (loading) {
+                    CircularProgressIndicator()
+                } else {
+                    Icon(
+                        imageVector = Icons.Outlined.Refresh,
+                        contentDescription = "Generate"
+                    )
+                }
+            },
+            backgroundColor = MaterialTheme.colors.secondary.copy(
+                alpha = if(loading) 0.5f else 1f
+            ),
+            text = {
+                if (it == 0) {
+                    Text("Reload")
+                } else {
+                    Text("Generate")
+                }
             }
-        },
-        backgroundColor = MaterialTheme.colors.secondary.copy(
-            alpha = if(loading) 0.5f else 1f
-        ),
-        text = {
-            Text("Generate")
-        }
-    )
+        )
+    }
 }

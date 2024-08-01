@@ -50,6 +50,12 @@ data class PlaylistModCrossRef(
     val id: Int,
 )
 
+data class PlaylistWithModsAndTags(
+    val playlist: Playlist,
+    val mods: List<ModWithTags>
+)
+
+
 data class PlaylistWithMods(
 
     @Embedded
