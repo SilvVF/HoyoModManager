@@ -2,74 +2,39 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.CircularProgressIndicator
-import androidx.compose.material.Divider
 import androidx.compose.material.ExtendedFloatingActionButton
-import androidx.compose.material.FilterChip
 import androidx.compose.material.Icon
-import androidx.compose.material.IconButton
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.NavigationRail
 import androidx.compose.material.NavigationRailItem
-import androidx.compose.material.Scaffold
-import androidx.compose.material.SnackbarDuration
-import androidx.compose.material.SnackbarHost
 import androidx.compose.material.Text
-import androidx.compose.material.TopAppBar
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Add
-import androidx.compose.material.icons.outlined.Check
-import androidx.compose.material.icons.outlined.Clear
 import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material.icons.outlined.Refresh
-import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.runtime.*
-import androidx.compose.runtime.snapshots.SnapshotStateList
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.composed
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastForEach
 import core.api.DataApi
 import core.api.GenshinApi
 import core.api.StarRailApi
 import core.api.ZZZApi
 import core.db.DB
-import core.model.Character
 import core.model.Game
 import core.model.Game.*
-import io.ktor.client.request.get
-import io.ktor.client.statement.bodyAsChannel
-import io.ktor.client.statement.bodyAsText
-import io.ktor.utils.io.jvm.javaio.copyTo
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
-import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.onEach
-import kotlinx.coroutines.flow.onStart
-import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
-import net.NetHelper.client
 import org.jetbrains.compose.ui.tooling.preview.Preview
 import ui.AppTheme
-import ui.CharacterToggleList
 import ui.LocalDataApi
-import ui.dialog.CreateModDialog
-import ui.dialog.SettingsDialog
+import java.io.BufferedReader
 import java.io.File
+import java.io.InputStreamReader
 import java.nio.file.Paths
 
 
@@ -168,6 +133,7 @@ fun GenerateButton(
                                 else -> Unit
                             }
                         }
+                            .onFailure { file.deleteRecursively() }
                     }
                 }
             }
@@ -180,6 +146,17 @@ fun GenerateButton(
                         File(exportDir, "${mod.id}_${mod.fileName}"), overwrite = copy
                     )
                 }
+            }
+
+
+
+            if (dataApi.game == Genshin) {
+                 val exeFix = exportDir.listFiles()?.find { it.isFile && it.extension == "exe" } ?: return@launch
+                 Runtime.getRuntime().exec(
+                    "cmd.exe /c cd ${exportDir.path} && start ${exeFix.name}",
+                    null,
+                    File(CharacterSync.rootDir.path)
+                )
             }
         }.invokeOnCompletion { loading = false }
     }
