@@ -12,6 +12,8 @@ import androidx.room.Junction
 import androidx.room.PrimaryKey
 import androidx.room.Query
 import androidx.room.Relation
+import androidx.room.RewriteQueriesToDropUnusedColumns
+import androidx.room.RoomWarnings
 import androidx.room.Transaction
 import androidx.room.Update
 import kotlinx.coroutines.flow.Flow
@@ -72,9 +74,27 @@ interface PlaylistDao {
     @Query("SELECT * FROM playlist WHERE game = :game")
     fun subscribeToPlaylistsWithMods(game: Game): Flow<List<PlaylistWithMods>>
 
+    @RewriteQueriesToDropUnusedColumns
+    @Transaction
+    @Query("""
+        SELECT 
+            p.*,
+            m.*,
+            t.*
+        FROM 
+            playlist p
+        JOIN 
+            playlistmodcrossref pmcr ON p.playlistId = pmcr.playlistId
+        JOIN 
+            mod m ON pmcr.id = m.id
+        LEFT JOIN 
+            tag t ON m.id = t.mod_id
+        WHERE p.game = :game
+        ORDER BY 
+            p.playlistId, m.id, t.name
+    """)
+    fun subscribeToPlaylistsWithModsAndTags(game: Game): Flow<Map<Playlist, Map<Mod, List<Tag>>>>
 
-    @Query("SELECT * FROM playlistmodcrossref")
-    suspend fun crossref(): List<PlaylistModCrossRef>
 
     @Insert
     suspend fun insert(playlist: Playlist): Long

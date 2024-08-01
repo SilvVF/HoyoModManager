@@ -54,6 +54,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupProperties
 import com.seiko.imageloader.ui.AutoSizeImage
 import core.db.DB
 import core.model.Character
@@ -63,6 +64,7 @@ import core.model.ModWithTags
 import core.model.Playlist
 import core.model.PlaylistModCrossRef
 import core.model.PlaylistWithMods
+import core.model.PlaylistWithModsAndTags
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.launch
@@ -95,13 +97,23 @@ fun PlaylistScreen(
             }
     }
 
-    val playlists by produceState<List<PlaylistWithMods>>(emptyList()) {
+    val playlists by produceState(emptyList()) {
         snapshotFlow { game }
             .flatMapLatest {
-                DB.playlistDao.subscribeToPlaylistsWithMods(game)
+                DB.playlistDao.subscribeToPlaylistsWithModsAndTags(game)
             }
             .collect { playlistWithMods ->
-                value = playlistWithMods
+                value = playlistWithMods.map { (playlist, modsWithTags) ->
+                    PlaylistWithModsAndTags(
+                        playlist,
+                        modsWithTags = modsWithTags.map { (mod, tags) ->
+                            ModWithTags(
+                                mod,
+                                tags
+                            )
+                        }
+                    )
+                }
             }
     }
 
@@ -159,7 +171,7 @@ fun PlaylistScreen(
                                         horizontalArrangement = Arrangement.SpaceBetween
                                     ) {
                                         val modNames by remember {
-                                            derivedStateOf { mods.joinToString { it.fileName } }
+                                            derivedStateOf { mods.joinToString { it.mod.fileName } }
                                         }
 
                                         Column(Modifier.weight(1f).padding(12.dp)) {
@@ -186,7 +198,7 @@ fun PlaylistScreen(
                                         IconButton(
                                             onClick = {
                                                 scope.launch(Dispatchers.IO) {
-                                                    DB.modDao.enableAndDisable(enabled = mods.map { it.id }, game)
+                                                    DB.modDao.enableAndDisable(enabled = mods.map { it.mod.id }, game)
                                                 }
                                             }
                                         ) {
@@ -204,7 +216,10 @@ fun PlaylistScreen(
                 var offset by remember { mutableStateOf(IntOffset.Zero)}
                 Popup(
                     offset = offset,
-                ) {
+                    properties = PopupProperties(
+                        focusable = true
+                    ),
+                    onPreviewKeyEvent = { false }, onKeyEvent = { false }) {
                     ChangeTextPopup(
                         value = text,
                         modifier = Modifier.draggableXY { intOffset ->
@@ -239,6 +254,10 @@ fun PlaylistScreen(
                 var offset by remember { mutableStateOf(IntOffset.Zero)}
                 Popup(
                     offset = offset,
+                    properties = PopupProperties(
+                        focusable = true
+                    ),
+                    onPreviewKeyEvent = { false }, onKeyEvent = { false }
                 ) {
                     ChangeTextPopup(
                         value = text,
