@@ -11,12 +11,16 @@ plugins {
     kotlin("plugin.serialization") version "2.0.0"
 }
 
+
+
 kotlin {
     jvm("desktop")
 
     sourceSets {
         val desktopMain by getting
-        
+
+        val voyagerVersion = "1.1.0-beta02"
+
         commonMain.dependencies {
             implementation(compose.runtime)
             implementation(compose.foundation)
@@ -29,6 +33,7 @@ kotlin {
             implementation(libs.ktor.client.core)
             implementation(libs.ktor.content.negotiation)
             implementation(libs.ktor.serialization.json)
+
 
             implementation("com.squareup.okio:okio:3.9.0")
 
@@ -45,6 +50,11 @@ kotlin {
             implementation(libs.sqlite.bundled)
 
             implementation("org.jsoup:jsoup:1.7.2")
+
+            // Navigator
+            implementation("cafe.adriel.voyager:voyager-navigator:$voyagerVersion")
+            // Transitions
+            implementation("cafe.adriel.voyager:voyager-transitions:$voyagerVersion")
         }
         desktopMain.dependencies {
             api("io.github.qdsfdhvh:image-loader-extension-imageio:1.8.2")

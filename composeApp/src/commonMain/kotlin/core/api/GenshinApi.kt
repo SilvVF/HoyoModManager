@@ -13,6 +13,8 @@ import javax.xml.crypto.Data
 
 object GenshinApi: DataApi {
 
+    override val skinCategoryId: Int = 18140
+
     override val game: Game = Game.Genshin
 
     override suspend fun characterList(): List<Character> {
@@ -24,6 +26,10 @@ object GenshinApi: DataApi {
                 .getOrNull()
         }
             .filterNotNull()
+    }
+
+    override suspend fun topSubmissions() {
+        TODO("Not yet implemented")
     }
 
     override val elements = listOf("Anemo", "Cryo", "Dendro", "Electro", "Geo", "Hydro", "Pyro")

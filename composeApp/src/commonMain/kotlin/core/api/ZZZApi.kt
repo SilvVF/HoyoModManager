@@ -9,7 +9,10 @@ import org.jsoup.Jsoup
 
 object ZZZApi: DataApi {
 
+    override val skinCategoryId: Int = 30305
+
     private const val BASE_URL = "https://www.prydwen.gg"
+
     override val game: Game = Game.ZZZ
 
     override val elements: List<String> = listOf("Electric", "Ether", "Fire", "Ice", "Physical")
@@ -43,5 +46,9 @@ object ZZZApi: DataApi {
 
                 .getOrNull()
          }
+    }
+
+    override suspend fun topSubmissions() {
+        TODO("Not yet implemented")
     }
 }

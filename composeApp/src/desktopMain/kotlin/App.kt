@@ -1,7 +1,3 @@
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -15,10 +11,22 @@ import androidx.compose.material.Text
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material.icons.outlined.Refresh
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.util.fastForEach
+import cafe.adriel.voyager.core.screen.Screen
+import cafe.adriel.voyager.core.screen.ScreenKey
+import cafe.adriel.voyager.navigator.Navigator
+import cafe.adriel.voyager.transitions.FadeTransition
 import core.api.DataApi
+import core.api.GameBananaApi
 import core.api.GenshinApi
 import core.api.StarRailApi
 import core.api.ZZZApi
@@ -29,12 +37,11 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.jetbrains.compose.ui.tooling.preview.Preview
 import ui.AppTheme
 import ui.LocalDataApi
-import java.io.BufferedReader
 import java.io.File
-import java.io.InputStreamReader
 import java.nio.file.Paths
 
 
@@ -43,61 +50,68 @@ sealed interface SyncRequest {
     data class UserInitiated(val network: Boolean): SyncRequest
 }
 
-sealed interface Dest {
-    data object Playlist: Dest
-    data class ModList(val game: Game): Dest
-}
 
 @Composable
 @Preview
 fun App() {
     AppTheme {
-
-        var dest by remember { mutableStateOf<Dest>(Dest.ModList(Genshin)) }
-
-        Row(Modifier.fillMaxSize()) {
-            NavigationRail {
-                Game.entries.fastForEach { game ->
-                    NavigationRailItem(
-                        selected = when (val d = dest) {
-                            is Dest.ModList -> game == d.game
-                            Dest.Playlist -> false
-                        },
-                        onClick = { dest = Dest.ModList(game) },
-                        label = { Text(game.name) },
-                        icon = { game.UiIcon() }
-                    )
-                }
-                NavigationRailItem(
-                    selected = dest is Dest.Playlist,
-                    onClick = { dest = Dest.Playlist },
-                    label = { Text("Playlists") },
-                    icon = { Icon(imageVector = Icons.Outlined.PlayArrow, null) }
-                )
-            }
-            AnimatedContent(dest, Modifier.fillMaxSize(), { fadeIn() togetherWith fadeOut() }) { targetDest ->
-                when (targetDest) {
-                    is Dest.ModList ->  CompositionLocalProvider(
-                        LocalDataApi provides remember(targetDest.game) {
-                            when (targetDest.game) {
-                                Genshin -> GenshinApi
-                                StarRail -> StarRailApi
-                                ZZZ -> ZZZApi
-                            }
-                        }
-                    ) {
-                        GameModListScreen(
-                            modifier = Modifier.fillMaxSize(),
-                            selectedGame = targetDest.game,
+        Navigator(screen = GameScreen(Genshin)) { navigator ->
+            Row(Modifier.fillMaxSize()) {
+                NavigationRail {
+                    Game.entries.fastForEach { game ->
+                        NavigationRailItem(
+                            selected = when (val screen = navigator.lastItemOrNull) {
+                                is GameScreen -> game == screen.game
+                                else -> false
+                            },
+                            onClick = { navigator.push(GameScreen(game)) },
+                            label = { Text(game.name) },
+                            icon = { game.UiIcon() }
                         )
                     }
-                    Dest.Playlist -> PlaylistScreen(Modifier.fillMaxSize())
+                    NavigationRailItem(
+                        selected = navigator.lastItemOrNull is PlaylistScreen,
+                        onClick = { navigator.push(PlaylistScreen()) },
+                        label = { Text("Playlists") },
+                        icon = { Icon(imageVector = Icons.Outlined.PlayArrow, null) }
+                    )
                 }
+                FadeTransition(navigator)
             }
         }
     }
 }
 
+
+class PlaylistScreen: Screen {
+
+    @Composable
+    override fun Content() {
+
+        PlaylistScreen(Modifier.fillMaxSize())
+    }
+}
+
+class GameScreen(val game: Game): Screen {
+
+    override val key: ScreenKey
+        get() = super.key + game.name
+
+    @Composable
+    override fun Content() {
+        CompositionLocalProvider(
+            LocalDataApi provides remember(game) {
+                when(game) {
+                    Genshin -> GenshinApi
+                    StarRail -> StarRailApi
+                    ZZZ -> ZZZApi
+                }
+            }
+        ) {
+            GameModListScreen(game, Modifier.fillMaxSize())
+        }
+    }
+}
 
 
 @Composable
@@ -151,8 +165,8 @@ fun GenerateButton(
 
 
             if (dataApi.game == Genshin) {
-                 val exeFix = exportDir.listFiles()?.find { it.isFile && it.extension == "exe" } ?: return@launch
-                 Runtime.getRuntime().exec(
+                val exeFix = exportDir.listFiles()?.find { it.isFile && it.extension == "exe" } ?: return@launch
+                Runtime.getRuntime().exec(
                     "cmd.exe /c cd ${exportDir.path} && start ${exeFix.name}",
                     null,
                     File(CharacterSync.rootDir.path)

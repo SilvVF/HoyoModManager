@@ -70,6 +70,8 @@ import core.db.DB
 import core.model.Mod
 import core.model.ModWithTags
 import core.model.Character
+import core.model.CharacterWithMods
+import core.model.CharacterWithModsAndTags
 import core.model.Game
 import core.model.Tag
 import core.renameFolder
@@ -86,13 +88,12 @@ import kotlin.math.roundToInt
 fun CharacterToggleList(
     modifier: Modifier = Modifier,
     paddingValues: PaddingValues,
-    characters: List<Character>,
+    characters: List<CharacterWithModsAndTags>,
     onCharacterIconClick: (character: Character) -> Unit,
     game: Game,
 ) {
     val lazyGridState = rememberLazyGridState()
     val scope = rememberCoroutineScope()
-
 
     Box(modifier) {
         LazyVerticalGrid(
@@ -101,19 +102,10 @@ fun CharacterToggleList(
             columns = GridCells.Fixed(3),
             contentPadding = paddingValues
         ) {
-            items(characters, key = { it.id }) { character ->
+            items(characters, key = { it.character.id  }) { (character, mods) ->
 
                 val onBackground = remember { Color(0xff030712) }
                 val typeColor = remember { Color(0xff111827) }
-
-                val mods by produceState<List<ModWithTags>>(emptyList()) {
-                    withContext(Dispatchers.IO) {
-                        DB.modDao.observeModsWithTags(character.name, game.data)
-                            .collect { modsWithTags ->
-                                withContext(Dispatchers.Main) { value = modsWithTags }
-                            }
-                    }
-                }
 
                 Card(Modifier.padding(8.dp)) {
                     BoxWithConstraints(Modifier.background(Brush.verticalGradient(listOf(onBackground, typeColor)))) {
@@ -187,9 +179,6 @@ fun FileToggles(
             mods.fastForEach { (mod, tags) ->
                 item(key = mod.fileName) {
 
-                    val checked by produceState(false) {
-                        DB.modDao.observeByFileName(mod.fileName).collect { value = it?.enabled ?: false }
-                    }
                     var dropDownExpanded by remember { mutableStateOf(false) }
 
                     Column {
@@ -207,7 +196,7 @@ fun FileToggles(
                                 toggleExpanded = { dropDownExpanded = !dropDownExpanded },
                             )
                             Switch(
-                                checked = checked,
+                                checked = mod.enabled,
                                 onCheckedChange = {
                                     scope.launch(Dispatchers.IO) {
                                         toggleModEnabled(fileName = mod.fileName, enabled = it)

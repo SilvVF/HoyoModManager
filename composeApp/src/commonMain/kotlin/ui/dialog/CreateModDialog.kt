@@ -39,6 +39,8 @@ import androidx.compose.ui.window.Dialog
 import com.seiko.imageloader.rememberImagePainter
 import core.renameFolder
 import core.model.Character
+import core.model.CharacterWithMods
+import core.model.CharacterWithModsAndTags
 import io.github.vinceglb.filekit.compose.rememberDirectoryPickerLauncher
 import kotlinx.coroutines.launch
 import ui.widget.ChangeTextPopup
@@ -54,7 +56,7 @@ private sealed interface SelectionState {
 fun CreateModDialog(
     onDismissRequest: () -> Unit,
     createMod: (dir: File, character: Character) -> Unit,
-    characters: List<Character>,
+    characters: List<CharacterWithModsAndTags>,
     initialCharacter: Character? = null
 ) {
     Dialog(
@@ -68,14 +70,14 @@ fun CreateModDialog(
                 var selectedIndex by remember {
                     mutableStateOf(
                         initialCharacter?.let {
-                            characters.indexOfFirst { it.id == initialCharacter.id }
+                            characters.indexOfFirst { it.character.id == initialCharacter.id }
                         } ?: 0
                     )
                 }
                 var selectedDir by remember { mutableStateOf<File?>(null) }
                 var selectionState by remember { mutableStateOf<SelectionState>(SelectionState.Default) }
 
-                val painter = rememberImagePainter(characters[selectedIndex].avatarUrl)
+                val painter = rememberImagePainter(characters[selectedIndex].character.avatarUrl)
 
                 // FileKit Compose
                 val launcher = rememberDirectoryPickerLauncher(
@@ -95,7 +97,7 @@ fun CreateModDialog(
                 )
 
                 Box(modifier = Modifier.wrapContentSize(Alignment.Center)) {
-                    val character = characters.getOrNull(selectedIndex) ?: return@Box
+                    val character = characters.getOrNull(selectedIndex)?.character ?: return@Box
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.Center,
@@ -121,7 +123,7 @@ fun CreateModDialog(
                     when (state) {
                         SelectionState.SelectingCharacter -> {
                             LazyColumn(Modifier.fillMaxWidth()) {
-                                characters.fastForEachIndexed { index, character ->
+                                characters.fastForEachIndexed { index, (character, _) ->
                                     item(key = character.name) {
                                         DropdownMenuItem(
                                             onClick = {
@@ -177,7 +179,7 @@ fun CreateModDialog(
                 Button(
                     onClick = {
                         selectedDir?.let {
-                            createMod(it, characters.getOrNull(selectedIndex) ?: return@let)
+                            createMod(it, characters.getOrNull(selectedIndex)?.character ?: return@let)
                         }
                     },
                     enabled = selectedDir != null

@@ -10,6 +10,9 @@ import net.GET
 
 
 object StarRailApi: DataApi {
+
+    override val skinCategoryId: Int = 18366
+
     override val game: Game = Game.StarRail
 
     override val elements: List<String> =
@@ -39,5 +42,9 @@ object StarRailApi: DataApi {
             characters.add(character)
         }
         return characters.toList()
+    }
+
+    override suspend fun topSubmissions() {
+        TODO("Not yet implemented")
     }
 }
