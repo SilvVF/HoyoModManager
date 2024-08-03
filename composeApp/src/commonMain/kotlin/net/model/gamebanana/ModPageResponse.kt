@@ -11,7 +11,7 @@ data class ModPageResponse(
     @SerialName("_aCategory")
     val aCategory: ACategory,
     @SerialName("_aContentRatings")
-    val aContentRatings: AContentRatings,
+    val aContentRatings: Map<String, String>,
 //    @SerialName("_aContributingStudios")
 //    val aContributingStudios: List<Any>,
     @SerialName("_aCredits")
@@ -105,16 +105,6 @@ data class ModPageResponse(
         val sName: String? = null,
         @SerialName("_sProfileUrl")
         val sProfileUrl: String? = null
-    )
-
-    @Serializable
-    data class AContentRatings(
-        @SerialName("nu")
-        val nu: String? = null,
-        @SerialName("pn")
-        val pn: String? = null,
-        @SerialName("sa")
-        val sa: String? = null
     )
 
     @Serializable

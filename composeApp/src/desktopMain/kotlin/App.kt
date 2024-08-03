@@ -34,9 +34,13 @@ import core.api.ZZZApi
 import core.db.DB
 import core.model.Game
 import core.model.Game.*
+import core.model.Playlist
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.channels.Channel.Factory.UNLIMITED
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.jetbrains.compose.ui.tooling.preview.Preview
@@ -44,6 +48,7 @@ import ui.AppTheme
 import ui.LocalDataApi
 import java.io.File
 import java.nio.file.Paths
+import kotlin.reflect.KClass
 
 
 sealed interface SyncRequest {
@@ -51,6 +56,25 @@ sealed interface SyncRequest {
     data class UserInitiated(val network: Boolean): SyncRequest
 }
 
+object RootNav {
+
+    private val scope = CoroutineScope(Dispatchers.Main)
+    private val reselectChannel = Channel<KClass<*>>(UNLIMITED)
+
+    @Composable
+    fun observeReselectEvents(screen: Screen, block: suspend () -> Unit) {
+        LaunchedEffect(Unit) {
+            reselectChannel.receiveAsFlow()
+                .collect { reselected ->
+                    if (screen::class == reselected) block()
+                }
+        }
+    }
+
+    fun onReselect(screen: KClass<*>) {
+        scope.launch { reselectChannel.send(screen) }
+    }
+}
 
 @Composable
 @Preview
@@ -65,20 +89,40 @@ fun App() {
                                 is GameScreen -> game == screen.game
                                 else -> false
                             },
-                            onClick = { navigator.push(GameScreen(game)) },
+                            onClick = {
+                                val found = navigator.popUntil {
+                                    val screenGame  = (it as? GameScreen)?.game ?: return@popUntil false
+                                    screenGame == game
+                                }
+                                if (!found) {
+                                    navigator.push(GameScreen(game))
+                                }
+                            },
                             label = { Text(game.name) },
                             icon = { game.UiIcon() }
                         )
                     }
                     NavigationRailItem(
                         selected = navigator.lastItemOrNull is PlaylistScreen,
-                        onClick = { navigator.push(PlaylistScreen()) },
+                        onClick = {
+                            val found = navigator.popUntil { it is PlaylistScreen }
+                            if (!found) {
+                                navigator.push(PlaylistScreen())
+                            }
+                        },
                         label = { Text("Playlists") },
                         icon = { Icon(imageVector = Icons.Outlined.PlayArrow, null) }
                     )
                     NavigationRailItem(
                         selected = navigator.lastItemOrNull is ModBrowseScreen,
-                        onClick = { navigator.push(ModBrowseScreen()) },
+                        onClick = {
+                            val found = navigator.popUntil { it is ModBrowseScreen }
+                            if (!found) {
+                                navigator.push(ModBrowseScreen())
+                            } else {
+                                RootNav.onReselect(ModBrowseScreen::class)
+                            }
+                        },
                         label = { Text("Browse mods") },
                         icon = { Icon(imageVector = Icons.Outlined.AccountBox, null) }
                     )
