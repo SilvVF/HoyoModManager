@@ -31,7 +31,8 @@ data class CategoryContentResponse(
         val aSubmitter: ASubmitter? = null,
         @SerialName("_aTags")
         val aTags: List<String>,
-        val idRow: Int? = null,
+        @SerialName("_idRow")
+        val idRow: Int,
         @SerialName("_nLikeCount")
         val nLikeCount: Int? = null,
         @SerialName("_nPostCount")

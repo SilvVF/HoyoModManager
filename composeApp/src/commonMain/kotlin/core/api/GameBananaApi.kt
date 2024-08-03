@@ -3,6 +3,7 @@ package core.api
 import net.GET
 import net.model.gamebanana.CategoryContentResponse
 import net.model.gamebanana.CategoryListResponseItem
+import net.model.gamebanana.ModPageResponse
 
 object GameBananaApi {
 
@@ -16,6 +17,11 @@ object GameBananaApi {
 
     suspend fun categoryContent(id: Int, perPage: Int = 15, page: Int = 1): CategoryContentResponse {
         val url = "$BASE_URL/Mod/Index?_nPerpage=$perPage&_aFilters[Generic_Category]=$id&_nPage=$page"
-        return GET<CategoryContentResponse>(url)
+        return GET(url)
+    }
+
+    suspend fun modContent(id: Int): ModPageResponse {
+        val url = "https://gamebanana.com/apiv11/Mod/$id/ProfilePage"
+        return GET(url)
     }
 }

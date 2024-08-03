@@ -3,6 +3,7 @@ import BrowseState.Success.PageLoadState
 import androidx.compose.foundation.LocalScrollbarStyle
 import androidx.compose.foundation.VerticalScrollbar
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -39,10 +40,12 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastForEach
 import com.seiko.imageloader.ui.AutoSizeImage
+import core.api.DataApi
 import core.api.GameBananaApi
 import core.api.GenshinApi
 import core.api.StarRailApi
 import core.api.ZZZApi
+import core.model.Game
 import core.model.Game.Genshin
 import core.model.Game.StarRail
 import core.model.Game.ZZZ
@@ -59,15 +62,18 @@ import net.model.gamebanana.CategoryContentResponse
 import net.model.gamebanana.CategoryListResponseItem
 import kotlin.math.abs
 
-private sealed interface BrowseState {
-    data object Loading: BrowseState
+private sealed class BrowseState(
+    open val gbUrl: String
+) {
+    data class Loading(override val gbUrl: String) : BrowseState(gbUrl)
 
     data  class Success(
+        override val gbUrl: String,
         val pageCount: Int,
         val page: Int,
         val mods: Map<Int, PageLoadState>,
         val subCategories: List<CategoryListResponseItem>
-    ): BrowseState {
+    ): BrowseState(gbUrl) {
 
         sealed interface PageLoadState {
             data object Loading: PageLoadState
@@ -75,7 +81,8 @@ private sealed interface BrowseState {
             data object Failure: PageLoadState
         }
     }
-    data object Failure: BrowseState
+
+    data class Failure(override val gbUrl: String) : BrowseState(gbUrl)
 
     val success: Success?
         get() = this as? Success
@@ -83,35 +90,23 @@ private sealed interface BrowseState {
 
 
 private class ModBrowseStateHolder(
+    private val dataApi: DataApi,
+    private val categoryId: Int,
     private val scope: CoroutineScope,
 ) {
-    private val PER_PAGE = 30
     private fun MutableStateFlow<BrowseState>.updateSuccess(block: (Success) -> Success) {
         return this.update { state ->
             (state as? Success)?.let(block) ?: state
         }
     }
 
-    private val _game = MutableStateFlow(Genshin)
-
-    private val dataApi
-        get() = when(_game.value) {
-            Genshin -> GenshinApi
-            StarRail -> StarRailApi
-            ZZZ -> ZZZApi
-        }
-
-    private val _state = MutableStateFlow<BrowseState>(Loading)
-    val state: StateFlow<BrowseState>
-        get() = _state
+    private val _state = MutableStateFlow<BrowseState>(Loading(GB_CAT_URL + categoryId))
+    val state: StateFlow<BrowseState> get() = _state
 
     init {
-        _game.asStateFlow()
-            .onEach {
-                _state.value = Loading
-                initialize()
-            }
-            .launchIn(scope)
+        scope.launch {
+            initialize()
+        }
     }
 
     fun retry() {
@@ -123,22 +118,25 @@ private class ModBrowseStateHolder(
     private suspend fun initialize() {
         val res = try {
             GameBananaApi.categoryContent(
-                id = dataApi.skinCategoryId,
+                id = categoryId,
                 perPage = PER_PAGE,
                 page = 1
             )
         } catch (e: Exception) {
             print(e.stackTraceToString())
-            _state.value = Failure
+            _state.update { Failure(it.gbUrl) }
             return
         }
 
-        _state.value = Success(
-            page = 1,
-            pageCount = res.aMetadata.nRecordCount / res.aMetadata.nPerpage,
-            mods = mapOf(1 to PageLoadState.Success(res.aRecords)),
-            subCategories = GameBananaApi.categories(dataApi.skinCategoryId)
-        )
+        _state.update {
+            Success(
+                page = 1,
+                gbUrl = it.gbUrl,
+                pageCount = res.aMetadata.nRecordCount / res.aMetadata.nPerpage,
+                mods = mapOf(1 to PageLoadState.Success(res.aRecords)),
+                subCategories = GameBananaApi.categories(dataApi.skinCategoryId)
+            )
+        }
     }
 
     fun loadPage(page: Int) {
@@ -190,20 +188,28 @@ private class ModBrowseStateHolder(
             }
         }
     }
+
+    companion object {
+        private const val GB_CAT_URL = "https://gamebanana.com/mods/cats/"
+        private const val PER_PAGE = 30
+    }
 }
 
 @Composable
 fun ModBrowseContent(
+    categoryId: Int,
     onModClick: (id: Int) -> Unit
 ) {
-    val scope = rememberCoroutineScope()
-    val stateHolder = remember { ModBrowseStateHolder(scope) }
-
-    val modState by stateHolder.state.collectAsState()
-
     Scaffold { paddingValues ->
+
+        val dataApi = remember { GenshinApi }
+        val scope = rememberCoroutineScope()
+        val stateHolder = remember(dataApi) { ModBrowseStateHolder(dataApi, categoryId, scope) }
+
+        val modState by stateHolder.state.collectAsState()
+
         when (val state = modState) {
-            Failure -> {
+            is Failure -> {
                 Box(Modifier.fillMaxSize()) {
                     TextButton(
                         onClick = { stateHolder.retry() },
@@ -213,16 +219,17 @@ fun ModBrowseContent(
                     }
                 }
             }
-            Loading -> {
+            is Loading -> {
                 Box(Modifier.fillMaxSize()) {
                     CircularProgressIndicator(Modifier.align(Alignment.Center))
                 }
             }
             is Success -> {
                 PageContent(
-                    state,
-                    { stateHolder.loadPage(it) },
-                    paddingValues,
+                    state = state,
+                    onModClick = onModClick,
+                    loadPage = { stateHolder.loadPage(it) },
+                    paddingValues = paddingValues,
                     modifier = Modifier.fillMaxSize()
                 )
             }
@@ -235,6 +242,7 @@ fun ModBrowseContent(
 private fun PageContent(
     state: Success,
     loadPage: (page: Int) -> Unit,
+    onModClick: (id: Int) -> Unit,
     paddingValues: PaddingValues,
     modifier: Modifier = Modifier
 ) {
@@ -261,7 +269,14 @@ private fun PageContent(
                         modifier = Modifier.fillMaxSize().padding(horizontal = 22.dp)
                     ) {
                         items(data.data) { submission ->
-                            Column(Modifier.fillMaxSize().padding(8.dp)) {
+                            Column(Modifier
+                                .fillMaxSize()
+                                .padding(8.dp)
+                                .clickable {
+                                    println(submission.idRow?.toString() + "Clicked")
+                                    submission.idRow?.let { onModClick(it) }
+                                }
+                            ) {
                                 ModImagePreview(
                                     submission.aPreviewMedia,
                                     Modifier.fillMaxWidth()
