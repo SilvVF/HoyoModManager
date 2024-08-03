@@ -9,6 +9,7 @@ import androidx.compose.material.NavigationRail
 import androidx.compose.material.NavigationRailItem
 import androidx.compose.material.Text
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.AccountBox
 import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.runtime.Composable
@@ -74,6 +75,12 @@ fun App() {
                         onClick = { navigator.push(PlaylistScreen()) },
                         label = { Text("Playlists") },
                         icon = { Icon(imageVector = Icons.Outlined.PlayArrow, null) }
+                    )
+                    NavigationRailItem(
+                        selected = navigator.lastItemOrNull is ModBrowseScreen,
+                        onClick = { navigator.push(ModBrowseScreen()) },
+                        label = { Text("Browse mods") },
+                        icon = { Icon(imageVector = Icons.Outlined.AccountBox, null) }
                     )
                 }
                 FadeTransition(navigator)

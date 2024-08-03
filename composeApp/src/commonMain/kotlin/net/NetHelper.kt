@@ -16,6 +16,7 @@ import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
+import net.NetHelper.json
 import java.io.File
 import java.nio.file.Files
 import java.nio.file.Paths
@@ -40,5 +41,5 @@ object NetHelper {
 }
 
 suspend inline fun <reified T> GET(url: String, crossinline block: HttpRequestBuilder.() -> Unit = {}): T =
-    withContext(Dispatchers.IO) { Json.decodeFromString(NetHelper.client.get(url, block).bodyAsText()) }
+    withContext(Dispatchers.IO) { json.decodeFromString(NetHelper.client.get(url, block).bodyAsText()) }
 

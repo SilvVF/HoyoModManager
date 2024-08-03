@@ -50,11 +50,10 @@ kotlin {
             implementation(libs.sqlite.bundled)
 
             implementation("org.jsoup:jsoup:1.7.2")
-
-            // Navigator
+            
             implementation("cafe.adriel.voyager:voyager-navigator:$voyagerVersion")
-            // Transitions
             implementation("cafe.adriel.voyager:voyager-transitions:$voyagerVersion")
+            implementation("cafe.adriel.voyager:voyager-tab-navigator:$voyagerVersion")
         }
         desktopMain.dependencies {
             api("io.github.qdsfdhvh:image-loader-extension-imageio:1.8.2")
