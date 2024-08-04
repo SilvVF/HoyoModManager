@@ -54,6 +54,9 @@ interface CharacterDao {
     @Query("SELECT * FROM character WHERE id = :id AND game = :game LIMIT 1")
     suspend fun selectById(id: Int, game: Game): Character?
 
+    @Query("SELECT * FROM character WHERE :name LIKE name AND game = :game LIMIT 1")
+    suspend fun selectClosesMatch(game: Game, name: String): Character?
+
     @Transaction
     suspend fun updateFromCharacters(characters: List<Character>) {
         for (character in characters) {

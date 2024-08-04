@@ -1,3 +1,5 @@
+package tab.playlist
+
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
@@ -63,7 +65,6 @@ import core.model.Mod
 import core.model.ModWithTags
 import core.model.Playlist
 import core.model.PlaylistModCrossRef
-import core.model.PlaylistWithMods
 import core.model.PlaylistWithModsAndTags
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.flatMapLatest
@@ -177,7 +178,8 @@ fun PlaylistScreen(
                                         }
                                         IconButton(
                                             onClick = {
-                                                currentDialog = PlaylistDialog.RenamePlaylist(playlist)
+                                                currentDialog =
+                                                    PlaylistDialog.RenamePlaylist(playlist)
                                             }
                                         ) {
                                             Icon(Icons.Outlined.Edit, null)

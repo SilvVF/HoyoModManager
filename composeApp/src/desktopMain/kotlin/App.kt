@@ -9,12 +9,8 @@ import androidx.compose.material.NavigationRail
 import androidx.compose.material.NavigationRailItem
 import androidx.compose.material.Text
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.AccountBox
-import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -22,33 +18,27 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.util.fastForEach
-import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.core.screen.ScreenKey
-import cafe.adriel.voyager.navigator.Navigator
-import cafe.adriel.voyager.transitions.FadeTransition
 import core.api.DataApi
-import core.api.GameBananaApi
-import core.api.GenshinApi
-import core.api.StarRailApi
-import core.api.ZZZApi
 import core.db.DB
 import core.model.Game
-import core.model.Game.*
-import core.model.Playlist
+import core.model.Game.Genshin
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
-import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.channels.Channel.Factory.UNLIMITED
-import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
+import lib.voyager.Tab
+import lib.voyager.TabDisposable
+import lib.voyager.TabNavigator
 import org.jetbrains.compose.ui.tooling.preview.Preview
+import tab.ReselectTab
+import tab.game.GameTab
+import tab.mod.ModTab
+import tab.playlist.PlaylistTab
 import ui.AppTheme
 import ui.LocalDataApi
 import java.io.File
 import java.nio.file.Paths
-import kotlin.reflect.KClass
 
 
 sealed interface SyncRequest {
@@ -56,93 +46,70 @@ sealed interface SyncRequest {
     data class UserInitiated(val network: Boolean): SyncRequest
 }
 
+private val gameTabs = Game.entries.map { game ->
+    object : GameTab {
+
+        override val key: ScreenKey = game.name
+
+        override val game: Game = game
+    }
+}
+
+private val otherTabs = listOf(
+    PlaylistTab,
+    ModTab
+)
+
+private val tabs = otherTabs + gameTabs
+
 @Composable
 @Preview
 fun App() {
     AppTheme {
-        Navigator(screen = GameScreen(Genshin)) { navigator ->
+        TabNavigator(
+            tab = gameTabs.first(),
+            tabDisposable = {
+                TabDisposable(it, tabs)
+            }
+        ) { navigator ->
             Row(Modifier.fillMaxSize()) {
                 NavigationRail {
-                    Game.entries.fastForEach { game ->
+
+                    val handleSelect = { tab: Tab ->
+
+                        if (navigator.current == tab && tab is ReselectTab) {
+                            tab.onReselect()
+                        } else {
+                            navigator.current = tab
+                        }
+                    }
+
+                    gameTabs.fastForEach { tab ->
                         NavigationRailItem(
-                            selected = when (val screen = navigator.lastItemOrNull) {
-                                is GameScreen -> game == screen.game
+                            selected = when (val screen = navigator.current) {
+                                is GameTab -> tab.game == screen.game
                                 else -> false
                             },
-                            onClick = {
-                                val found = navigator.popUntil {
-                                    val screenGame  = (it as? GameScreen)?.game ?: return@popUntil false
-                                    screenGame == game
-                                }
-                                if (!found) {
-                                    navigator.push(GameScreen(game))
-                                }
-                            },
-                            label = { Text(game.name) },
-                            icon = { game.UiIcon() }
+                            onClick = { handleSelect(tab) },
+                            label = { Text(tab.game.name) },
+                            icon = { tab.Icon() }
                         )
                     }
-                    NavigationRailItem(
-                        selected = navigator.lastItemOrNull is PlaylistScreen,
-                        onClick = {
-                            val found = navigator.popUntil { it is PlaylistScreen }
-                            if (!found) {
-                                navigator.push(PlaylistScreen())
-                            }
-                        },
-                        label = { Text("Playlists") },
-                        icon = { Icon(imageVector = Icons.Outlined.PlayArrow, null) }
-                    )
-                    NavigationRailItem(
-                        selected = navigator.lastItemOrNull is ModBrowseScreen,
-                        onClick = {
-                            val found = navigator.popUntil { it is ModBrowseScreen }
-                            if (!found) {
-                                navigator.push(ModBrowseScreen())
-                            } else {
-                                (navigator.lastItem as? ReselectTab)?.onReselect()
-                            }
-                        },
-                        label = { Text("Browse mods") },
-                        icon = { Icon(imageVector = Icons.Outlined.AccountBox, null) }
-                    )
+                    otherTabs.fastForEach { tab ->
+                        NavigationRailItem(
+                            selected = navigator.current == tab ,
+                            onClick = { handleSelect(tab) },
+                            label = { Text(tab.toString()) },
+                            icon = { tab.Icon() }
+                        )
+                    }
                 }
-                FadeTransition(navigator)
+                lib.voyager.FadeTransition(navigator)
             }
         }
     }
 }
 
-
-class PlaylistScreen: Screen {
-
-    @Composable
-    override fun Content() {
-
-        PlaylistScreen(Modifier.fillMaxSize())
-    }
-}
-
-class GameScreen(val game: Game): Screen {
-
-    override val key: ScreenKey
-        get() = super.key + game.name
-
-    @Composable
-    override fun Content() {
-        CompositionLocalProvider(
-            LocalDataApi provides remember(game) {
-                when(game) {
-                    Genshin -> GenshinApi
-                    StarRail -> StarRailApi
-                    ZZZ -> ZZZApi
-                }
-            }
-        ) {
-            GameModListScreen(game, Modifier.fillMaxSize())
-        }
-    }
-}
 
 
 @Composable

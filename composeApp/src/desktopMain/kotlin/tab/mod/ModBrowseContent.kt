@@ -1,5 +1,7 @@
-import BrowseState.*
-import BrowseState.Success.PageLoadState
+package tab.mod
+
+import tab.mod.BrowseState.*
+import tab.mod.BrowseState.Success.PageLoadState
 import androidx.compose.foundation.LocalScrollbarStyle
 import androidx.compose.foundation.VerticalScrollbar
 import androidx.compose.foundation.background
@@ -43,19 +45,11 @@ import com.seiko.imageloader.ui.AutoSizeImage
 import core.api.DataApi
 import core.api.GameBananaApi
 import core.api.GenshinApi
-import core.api.StarRailApi
-import core.api.ZZZApi
-import core.model.Game
-import core.model.Game.Genshin
-import core.model.Game.StarRail
-import core.model.Game.ZZZ
+import fromHex
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.launchIn
-import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import net.model.gamebanana.CategoryContentResponse

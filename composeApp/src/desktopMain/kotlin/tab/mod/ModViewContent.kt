@@ -1,3 +1,7 @@
+package tab.mod
+
+import CharacterSync
+import OS
 import androidx.compose.foundation.LocalScrollbarStyle
 import androidx.compose.foundation.VerticalScrollbar
 import androidx.compose.foundation.border
@@ -37,12 +41,18 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastForEachIndexed
 import com.seiko.imageloader.ui.AutoSizeImage
 import core.FileUtils
+import core.api.DataApi
 import core.api.GameBananaApi
+import core.db.DB
+import core.model.Character
+import core.model.Game
+import core.model.Mod
 import io.ktor.client.plugins.onDownload
 import io.ktor.client.request.get
 import io.ktor.client.statement.bodyAsChannel
 import io.ktor.utils.io.jvm.javaio.toInputStream
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.receiveAsFlow
@@ -50,14 +60,13 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import net.NetHelper
 import net.model.gamebanana.ModPageResponse
+import ui.LocalDataApi
 import java.io.File
-import java.io.FileDescriptor
-import java.io.FileInputStream
-import java.io.FileOutputStream
-import java.io.IOException
-import java.io.InputStream
-import java.util.zip.ZipEntry
-import java.util.zip.ZipInputStream
+import java.nio.file.Paths
+import javax.xml.crypto.Data
+import kotlin.io.path.deleteIfExists
+import kotlin.io.path.exists
+import kotlin.io.path.pathString
 
 
 private sealed interface ModInfoState {
@@ -106,13 +115,70 @@ fun ModViewContent(
     }
 }
 
+suspend fun downloadFileFromZip(file: ModPageResponse.AFile, game: Game, character: Character): File? {
+    return try {
+        val downloadUrl = file.sDownloadUrl.replace("\\", "")
+        val validExt = listOf("7z", "zip", "rar")
+
+        val ext =  file.sFile.takeLastWhile { it != '.' }.lowercase()
+        assert(ext in validExt)
+
+        val res = NetHelper.client.get(downloadUrl) {
+            onDownload { bytesSentTotal: Long, contentLength: Long? ->
+                println("bytesSentTotal $bytesSentTotal; contentLength $contentLength")
+            }
+        }
+
+        val inputStream = res.bodyAsChannel().toInputStream()
+        val outputPath = Paths.get(
+            CharacterSync.rootDir.path,
+            game.name,
+            character.name,
+            file.sFile.removeSuffix(".$ext")
+        )
+
+        val path = if (outputPath.exists()) {
+            FileUtils.getNewName(outputPath.pathString)
+        } else  outputPath.pathString
+
+        val outputDir = File(path).also { it.mkdirs() }
+
+        when (ext) {
+            "7z" -> {
+                println("extracting using 7z")
+                FileUtils.extract7Zip(inputStream, outputDir)
+            }
+            "zip" -> {
+                println("extracting using zip")
+                FileUtils.extractZip(inputStream, outputDir)
+            }
+            "rar" -> {
+                println("extracting using rar")
+                FileUtils.extractRar(inputStream, outputDir)
+            }
+        }
+        outputDir
+    } catch (e: Exception) {
+        println(e.stackTraceToString())
+        null
+    }
+}
+
 @Composable
 private fun BoxScope.ModViewSuccessContent(
     data: ModPageResponse,
     modifier: Modifier = Modifier
 ) {
+    val dataAPi = LocalDataApi.current
     val scope = rememberCoroutineScope()
     val scrollState = rememberScrollState()
+
+    val character by produceState<Character?>(null) {
+        value = runCatching {
+            DB.characterDao.selectClosesMatch(dataAPi.game,  data.aCategory.sName!!)
+        }
+            .getOrNull()
+    }
 
     Column(Modifier.fillMaxSize().verticalScroll(scrollState)) {
         ContentRatings(
@@ -128,42 +194,21 @@ private fun BoxScope.ModViewSuccessContent(
             data.aFiles.forEach { file ->
                 TextButton(
                     onClick = {
-                        scope.launch(Dispatchers.IO) {
-
-                            try {
-                                val downloadUrl = file.sDownloadUrl.replace("\\", "")
-                                val validExt = listOf("7z", "zip", "rar")
-
-                                val ext =  file.sFile.takeLastWhile { it != '.' }.lowercase()
-                                assert(ext in validExt)
-
-                                val res = NetHelper.client.get(downloadUrl) {
-                                    onDownload { bytesSentTotal: Long, contentLength: Long? ->
-                                        println("bytesSentTotal $bytesSentTotal; contentLength $contentLength")
-                                    }
+                        scope.launch(Dispatchers.IO + NonCancellable) {
+                            character?.let { c ->
+                                val modDir = downloadFileFromZip(file, dataAPi.game, c)
+                                if (modDir != null) {
+                                    DB.modDao.insertOrUpdate(
+                                        Mod(
+                                            fileName = modDir.name,
+                                            game = dataAPi.game.data,
+                                            character = c.name,
+                                            characterId = c.id,
+                                            enabled = false,
+                                            modLink = data.sProfileUrl
+                                        )
+                                    )
                                 }
-
-                                val inputStream = res.bodyAsChannel().toInputStream()
-                                val outputDir = File(OS.getCacheDir(), "test").also { it.mkdirs() }
-
-                                println(ext)
-
-                                when (ext) {
-                                    "7z" -> {
-                                        println("extracting using 7z")
-                                        FileUtils.extract7Zip(inputStream, outputDir)
-                                    }
-                                    "zip" -> {
-                                        println("extracting using zip")
-                                        FileUtils.extractZip(inputStream, outputDir)
-                                    }
-                                    "rar" -> {
-                                        println("extracting using rar")
-                                        FileUtils.extractRar(inputStream, outputDir)
-                                    }
-                                }
-                            } catch (e: Exception) {
-                                println(e.stackTraceToString())
                             }
                         }
                     },
@@ -171,6 +216,7 @@ private fun BoxScope.ModViewSuccessContent(
                 ) {
                     Text("${file.sFile}@${file.sDownloadUrl}")
                 }
+                Text(character.toString())
             }
             Divider()
         }

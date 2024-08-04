@@ -21,8 +21,11 @@ import java.nio.file.Files
 import java.nio.file.Paths
 import java.nio.file.StandardCopyOption
 import java.util.UUID
+import java.util.regex.Matcher
+import java.util.regex.Pattern
 import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
+import kotlin.io.path.exists
 
 
 private object ExtractItemsStandard {
@@ -103,9 +106,6 @@ private object ExtractItemsStandard {
         }
 
         @Throws(SevenZipException::class)
-        override fun prepareOperation(extractAskMode: ExtractAskMode) = Unit
-
-        @Throws(SevenZipException::class)
         override fun setOperationResult(extractOperationResult: ExtractOperationResult) {
             if (extractOperationResult != ExtractOperationResult.OK) {
                 System.err.println("Extraction error")
@@ -116,14 +116,18 @@ private object ExtractItemsStandard {
                         inArchive.getProperty(index, PropID.PATH)
                     )
                 )
-                outputStream?.close()
                 hash = 0
                 size = 0
             }
+            outputStream?.close()
         }
 
         @Throws(SevenZipException::class)
+        override fun prepareOperation(extractAskMode: ExtractAskMode) = Unit
+
+        @Throws(SevenZipException::class)
         override fun setCompleted(completeValue: Long)= Unit
+
         @Throws(SevenZipException::class)
         override fun setTotal(total: Long)= Unit
     }
@@ -155,6 +159,37 @@ object FileUtils {
     fun seperate(vararg parts: String) = parts.reduceIndexed { i, acc, s ->
         if (i == 0) acc + s
         else acc + File.separator + s
+    }
+
+
+    /*
+        taken from
+        https://stackoverflow.com/questions/36140368/java-renaming-output-file-if-name-already-exists-with-an-increment-taking-int
+     */
+    private val PATTERN = Pattern.compile("(.*?)(?:\\((\\d+)\\))?(\\.[^.]*)?")
+
+    fun getNewName(path: String): String {
+
+        var filename = path
+        val checkExists = { name: String -> Paths.get(name).exists() }
+
+        if (checkExists(filename)) {
+            val m: Matcher = PATTERN.matcher(filename)
+            if (m.matches()) {
+                val prefix: String = m.group(1)
+                val last: String? = m.group(2)
+                var suffix: String? = m.group(3)
+                if (suffix == null) suffix = ""
+
+                var count = last?.toInt() ?: 0
+
+                do {
+                    count++
+                    filename = "$prefix ($count)$suffix"
+                } while (checkExists(filename))
+            }
+        }
+        return filename
     }
 
     @Throws(IOException::class)
