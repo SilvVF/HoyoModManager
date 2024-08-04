@@ -2,12 +2,10 @@ import androidx.compose.foundation.LocalScrollbarStyle
 import androidx.compose.foundation.VerticalScrollbar
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.scrollable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -21,6 +19,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.rememberScrollbarAdapter
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.CircularProgressIndicator
+import androidx.compose.material.Divider
 import androidx.compose.material.FilterChip
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Scaffold
@@ -35,18 +34,31 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.util.fastForEach
 import androidx.compose.ui.util.fastForEachIndexed
 import com.seiko.imageloader.ui.AutoSizeImage
+import core.FileUtils
 import core.api.GameBananaApi
+import io.ktor.client.plugins.onDownload
+import io.ktor.client.request.get
+import io.ktor.client.statement.bodyAsChannel
+import io.ktor.utils.io.jvm.javaio.toInputStream
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import net.model.gamebanana.CategoryContentResponse
+import net.NetHelper
 import net.model.gamebanana.ModPageResponse
+import java.io.File
+import java.io.FileDescriptor
+import java.io.FileInputStream
+import java.io.FileOutputStream
+import java.io.IOException
+import java.io.InputStream
+import java.util.zip.ZipEntry
+import java.util.zip.ZipInputStream
+
 
 private sealed interface ModInfoState {
     data object Loading: ModInfoState
@@ -99,6 +111,7 @@ private fun BoxScope.ModViewSuccessContent(
     data: ModPageResponse,
     modifier: Modifier = Modifier
 ) {
+    val scope = rememberCoroutineScope()
     val scrollState = rememberScrollState()
 
     Column(Modifier.fillMaxSize().verticalScroll(scrollState)) {
@@ -110,6 +123,57 @@ private fun BoxScope.ModViewSuccessContent(
             data.aPreviewMedia,
             Modifier.fillMaxWidth()
         )
+
+        Column {
+            data.aFiles.forEach { file ->
+                TextButton(
+                    onClick = {
+                        scope.launch(Dispatchers.IO) {
+
+                            try {
+                                val downloadUrl = file.sDownloadUrl.replace("\\", "")
+                                val validExt = listOf("7z", "zip", "rar")
+
+                                val ext =  file.sFile.takeLastWhile { it != '.' }.lowercase()
+                                assert(ext in validExt)
+
+                                val res = NetHelper.client.get(downloadUrl) {
+                                    onDownload { bytesSentTotal: Long, contentLength: Long? ->
+                                        println("bytesSentTotal $bytesSentTotal; contentLength $contentLength")
+                                    }
+                                }
+
+                                val inputStream = res.bodyAsChannel().toInputStream()
+                                val outputDir = File(OS.getCacheDir(), "test").also { it.mkdirs() }
+
+                                println(ext)
+
+                                when (ext) {
+                                    "7z" -> {
+                                        println("extracting using 7z")
+                                        FileUtils.extract7Zip(inputStream, outputDir)
+                                    }
+                                    "zip" -> {
+                                        println("extracting using zip")
+                                        FileUtils.extractZip(inputStream, outputDir)
+                                    }
+                                    "rar" -> {
+                                        println("extracting using rar")
+                                        FileUtils.extractRar(inputStream, outputDir)
+                                    }
+                                }
+                            } catch (e: Exception) {
+                                println(e.stackTraceToString())
+                            }
+                        }
+                    },
+                    modifier = Modifier.padding(6.dp)
+                ) {
+                    Text("${file.sFile}@${file.sDownloadUrl}")
+                }
+            }
+            Divider()
+        }
     }
     VerticalScrollbar(
         adapter = rememberScrollbarAdapter(scrollState),

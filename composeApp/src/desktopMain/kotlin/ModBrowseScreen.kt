@@ -15,18 +15,23 @@ import cafe.adriel.voyager.navigator.currentOrThrow
 import cafe.adriel.voyager.transitions.FadeTransition
 import core.api.GameBananaApi
 import core.api.GenshinApi
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.FlowCollector
+import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.UUID
 
 
-class ModBrowseScreen : Screen {
+class ModBrowseScreen : Screen, ReselectTab() {
 
     @Composable
     override fun Content() {
         Navigator(ModBrowse(GenshinApi.skinCategoryId)) { navigator ->
 
-            RootNav.observeReselectEvents(this) {
+            LaunchOnReselect {
                 navigator.replace(ModBrowse(GenshinApi.skinCategoryId))
             }
 

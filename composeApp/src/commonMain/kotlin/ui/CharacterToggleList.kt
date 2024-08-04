@@ -37,7 +37,6 @@ import androidx.compose.material.DropdownMenu
 import androidx.compose.material.Icon
 import androidx.compose.material.IconButton
 import androidx.compose.material.MaterialTheme
-import androidx.compose.material.Surface
 import androidx.compose.material.Switch
 import androidx.compose.material.Text
 import androidx.compose.material.TextButton
@@ -51,7 +50,6 @@ import androidx.compose.material.icons.outlined.Menu
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -66,20 +64,18 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastForEach
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
+import core.FileUtils
 import core.db.DB
-import core.model.Mod
-import core.model.ModWithTags
 import core.model.Character
-import core.model.CharacterWithMods
 import core.model.CharacterWithModsAndTags
 import core.model.Game
+import core.model.Mod
+import core.model.ModWithTags
 import core.model.Tag
-import core.renameFolder
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import ui.widget.ChangeTextPopup
 import java.nio.file.Paths
 import kotlin.math.roundToInt
@@ -413,7 +409,7 @@ private fun ModActionPopups(
                                     mod.character,
                                     mod.fileName
                                 )
-                                renameFolder(filePath.toFile(), name)
+                                FileUtils.renameFolder(filePath.toFile(), name)
                                     .onFailure { it.printStackTrace() }
                                     .onSuccess { renamed ->
                                         DB.modDao.update(

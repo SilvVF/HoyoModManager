@@ -37,9 +37,8 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.util.fastForEachIndexed
 import androidx.compose.ui.window.Dialog
 import com.seiko.imageloader.rememberImagePainter
-import core.renameFolder
+import core.FileUtils
 import core.model.Character
-import core.model.CharacterWithMods
 import core.model.CharacterWithModsAndTags
 import io.github.vinceglb.filekit.compose.rememberDirectoryPickerLauncher
 import kotlinx.coroutines.launch
@@ -164,7 +163,7 @@ fun CreateModDialog(
                                 onCancel = { selectionState = SelectionState.Default },
                                 onConfirm = {
                                     scope.launch {
-                                        renameFolder(state.file, text)
+                                        FileUtils.renameFolder(state.file, text)
                                             .onSuccess { renamed ->
                                                 selectedDir = renamed
                                             }

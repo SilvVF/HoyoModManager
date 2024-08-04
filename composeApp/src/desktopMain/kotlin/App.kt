@@ -56,26 +56,6 @@ sealed interface SyncRequest {
     data class UserInitiated(val network: Boolean): SyncRequest
 }
 
-object RootNav {
-
-    private val scope = CoroutineScope(Dispatchers.Main)
-    private val reselectChannel = Channel<KClass<*>>(UNLIMITED)
-
-    @Composable
-    fun observeReselectEvents(screen: Screen, block: suspend () -> Unit) {
-        LaunchedEffect(Unit) {
-            reselectChannel.receiveAsFlow()
-                .collect { reselected ->
-                    if (screen::class == reselected) block()
-                }
-        }
-    }
-
-    fun onReselect(screen: KClass<*>) {
-        scope.launch { reselectChannel.send(screen) }
-    }
-}
-
 @Composable
 @Preview
 fun App() {
@@ -120,7 +100,7 @@ fun App() {
                             if (!found) {
                                 navigator.push(ModBrowseScreen())
                             } else {
-                                RootNav.onReselect(ModBrowseScreen::class)
+                                (navigator.lastItem as? ReselectTab)?.onReselect()
                             }
                         },
                         label = { Text("Browse mods") },

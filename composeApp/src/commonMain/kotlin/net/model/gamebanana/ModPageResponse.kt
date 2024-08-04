@@ -11,7 +11,7 @@ data class ModPageResponse(
     @SerialName("_aCategory")
     val aCategory: ACategory,
     @SerialName("_aContentRatings")
-    val aContentRatings: Map<String, String>,
+    val aContentRatings: Map<String, String> = mapOf(),
 //    @SerialName("_aContributingStudios")
 //    val aContributingStudios: List<Any>,
     @SerialName("_aCredits")
@@ -119,7 +119,7 @@ data class ModPageResponse(
             @SerialName("_bIsOnline")
             val bIsOnline: Boolean? = null,
             @SerialName("_idRow")
-            val idRow: Int,
+            val idRow: Int? = null,
             @SerialName("_sName")
             val sName: String? = null,
             @SerialName("_sProfileUrl")

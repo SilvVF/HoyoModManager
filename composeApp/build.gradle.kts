@@ -50,6 +50,9 @@ kotlin {
             implementation(libs.sqlite.bundled)
 
             implementation("org.jsoup:jsoup:1.7.2")
+
+            implementation("net.sf.sevenzipjbinding:sevenzipjbinding:16.02-2.01")
+            implementation("net.sf.sevenzipjbinding:sevenzipjbinding-all-platforms:16.02-2.01")
             
             implementation("cafe.adriel.voyager:voyager-navigator:$voyagerVersion")
             implementation("cafe.adriel.voyager:voyager-transitions:$voyagerVersion")
