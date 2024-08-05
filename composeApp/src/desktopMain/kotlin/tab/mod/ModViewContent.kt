@@ -1,6 +1,7 @@
 package tab.mod
 
 import CharacterSync
+import OS
 import androidx.compose.foundation.LocalScrollbarStyle
 import androidx.compose.foundation.VerticalScrollbar
 import androidx.compose.foundation.border
@@ -36,12 +37,12 @@ import androidx.compose.material.TopAppBar
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowLeft
 import androidx.compose.material.icons.outlined.Create
-import androidx.compose.material.icons.outlined.KeyboardArrowLeft
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -49,26 +50,32 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.util.fastForEach
 import androidx.compose.ui.util.fastForEachIndexed
 import com.seiko.imageloader.ui.AutoSizeImage
 import core.FileUtils
-import core.ProgressListener
 import core.api.DataApi
 import core.api.GameBananaApi
-import core.asKtorListener
 import core.db.DB
 import core.model.Character
-import core.model.Game
 import core.model.Mod
 import io.ktor.client.plugins.onDownload
 import io.ktor.client.request.get
 import io.ktor.client.statement.bodyAsChannel
 import io.ktor.utils.io.jvm.javaio.toInputStream
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.flow.onStart
-import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import net.NetHelper
@@ -80,6 +87,22 @@ import kotlin.io.path.exists
 import kotlin.io.path.pathString
 
 
+private data class ModState(
+    val info: ModInfoState = ModInfoState.Loading,
+    val character: Character? = null,
+    val files: List<ModFile> = emptyList(),
+)
+
+private sealed interface ModDownloadState {
+    data object Downloading: ModDownloadState
+    data object Idle: ModDownloadState
+}
+
+private data class ModFile(
+    val file: ModPageResponse.AFile,
+    val downloaded: Boolean
+)
+
 private sealed interface ModInfoState {
     data object Loading: ModInfoState
     data class Success(val data: ModPageResponse): ModInfoState
@@ -89,17 +112,154 @@ private sealed interface ModInfoState {
         get() = this as? Success
 }
 
-private sealed interface ModDownloadState {
-    data object Idle: ModDownloadState
+private data class Progress(
+    val total: Long,
+    val complete: Long
+) {
+    val frac = if(total == 0L) 0f else  complete / total.toFloat()
+}
 
-    sealed class InProgress(
-        val total: Long,
-        val complete: Long,
-        val progress: Float
-    ): ModDownloadState {
-        data class Downloading(private val t: Long, private val c: Long, private val p: Float): InProgress(t, c, p)
+private class ModDownloadStateHolder(
+    val modFile: ModFile,
+    val dataApi: DataApi,
+    val character: Character? = null,
+    val info: ModInfoState.Success,
+    val scope: CoroutineScope,
+) {
+    /* These happen at the same time bc the file is read through and input stream when extracting*/
+    val downloadProgress = MutableStateFlow(Progress(0L, 0L))
+    val unzipProgress = MutableStateFlow(Progress(0L, 0L))
 
-        data class Unzipping(private val t: Long, private val  c: Long, private val p: Float): InProgress(t, c, p)
+    val errors = mutableStateListOf<String>()
+
+    var state by mutableStateOf<ModDownloadState>(ModDownloadState.Idle)
+
+    fun download() = scope.launch {
+        state = ModDownloadState.Downloading
+
+       runCatching {
+           downloadAndUpdateDB()
+        }
+           .onFailure {
+               println(it.stackTraceToString())
+               errors.add(it.localizedMessage)
+           }
+
+        state = ModDownloadState.Idle
+
+        downloadProgress.emit(Progress(0L, 0L))
+        unzipProgress.emit(Progress(0L, 0L))
+    }
+
+    private suspend fun downloadAndUpdateDB() = withContext(Dispatchers.IO) {
+        val (file, downloaded) = modFile
+
+        if (downloaded || character == null) return@withContext
+
+        val downloadUrl = file.sDownloadUrl!!.replace("\\", "")
+        val ext =  file.sFile!!.takeLastWhile { it != '.' }.lowercase()
+
+        val res = NetHelper.client.get(downloadUrl) {
+            onDownload { sent, length ->
+                downloadProgress.emit(Progress(length ?: 0, sent))
+            }
+        }
+
+        val inputStream = res.bodyAsChannel().toInputStream()
+
+        val outputPath = Paths.get(
+            CharacterSync.rootDir.path,
+            dataApi.game.name,
+            character.name,
+            file.sFile.removeSuffix(".$ext")
+        )
+
+        val path = if (outputPath.exists()) {
+            FileUtils.getNewName(outputPath.pathString)
+        } else  outputPath.pathString
+
+        val dir = File(path).also { it.mkdirs() }
+
+        FileUtils.extractUsing7z(inputStream, dir) { total, complete ->
+            unzipProgress.value = Progress(total, complete)
+        }
+
+        DB.modDao.insertOrUpdate(
+            buildMod(dir, dataApi, character, info.data, file)
+        )
+    }
+
+    private fun buildMod(modDir: File, dataApi: DataApi, c: Character, data: ModPageResponse, file: ModPageResponse.AFile) =
+        Mod(
+            fileName = modDir.name,
+            game = dataApi.game.data,
+            character = c.name,
+            characterId = c.id,
+            enabled = false,
+            modLink = data.sProfileUrl,
+            gbId = data.idRow,
+            gbDownloadLink = file.sDownloadUrl,
+            gbFileName = file.sFile,
+            previewImages = data.aPreviewMedia.aImages.map {
+                val base =  it.sBaseUrl.replace("\\", "")
+                base + '/' + (it.sFile).replace("\\", "")
+            }
+        )
+}
+
+private class ModStateHolder(
+    private val rowId: Int,
+    private val dataApi: DataApi,
+    private val scope: CoroutineScope
+) {
+    private val _state = MutableStateFlow(ModState())
+    val state: StateFlow<ModState> get() = _state.asStateFlow()
+
+    init {
+        state.map { it.info.success?.data?.aCategory?.sName }
+            .filterNotNull()
+            .distinctUntilChanged()
+            .onEach { name ->
+                val match = DB.characterDao.selectClosesMatch(dataApi.game, name)
+                _state.update { it.copy(character = match) }
+            }
+            .launchIn(scope)
+
+        state.map { it.info.success?.data?.aFiles }.filterNotNull().distinctUntilChanged()
+            .combine(
+                DB.modDao.observeModsByGbRowId(rowId)
+            ) { files, mods ->
+
+                val links = mods.mapNotNull { it.gbDownloadLink }
+
+                _state.update { state ->
+                    state.copy(
+                        files = files.map {
+                            ModFile(it, links.contains(it.sDownloadUrl))
+                        }
+                    )
+                }
+            }
+            .launchIn(scope)
+
+        scope.launch { initialize() }
+    }
+
+    suspend fun initialize() {
+        _state.value = runCatching {
+            GameBananaApi.modContent(rowId)
+        }
+            .fold(
+                onSuccess = { ModState(ModInfoState.Success(it)) },
+                onFailure = { ModState(ModInfoState.Failure) }
+            )
+    }
+
+    fun refresh() {
+        scope.launch {
+            _state.value = ModState(ModInfoState.Loading)
+            initialize()
+        }
     }
 }
 
@@ -110,23 +270,18 @@ fun ModViewContent(
     modifier: Modifier = Modifier,
 ) {
 
+    val dataApi = LocalDataApi.current
+    val scope = rememberCoroutineScope()
+    val stateHolder = remember { ModStateHolder(id, dataApi, scope) }
     val retryTrigger = remember { Channel<Unit>() }
-    val modInfo by produceState<ModInfoState>(ModInfoState.Loading) {
-        retryTrigger.receiveAsFlow().onStart { emit(Unit) }
-            .collect {
-                value = runCatching {
-                    withContext(Dispatchers.IO) { ModInfoState.Success(GameBananaApi.modContent(id)) }
-                }
-                    .onFailure { println(it.stackTraceToString()) }
-                    .getOrDefault(ModInfoState.Failure)
-            }
-    }
+
+    val state by stateHolder.state.collectAsState()
 
     Scaffold(
         modifier = modifier,
         topBar = {
             TopAppBar(
-                title = { Text(modInfo.success?.data?.sName.orEmpty()) },
+                title = { Text(state.info.success?.data?.sName.orEmpty()) },
                 navigationIcon = {
                     IconButton(
                         onClick = onBackPressed
@@ -144,7 +299,7 @@ fun ModViewContent(
             Modifier.fillMaxSize().padding(paddingValues),
             Alignment.Center
         ) {
-            when (val info = modInfo) {
+            when (val info = state.info) {
                 ModInfoState.Failure ->
                     TextButton(
                         onClick = { retryTrigger.trySend(Unit) }
@@ -152,161 +307,51 @@ fun ModViewContent(
                         Text("Retry")
                     }
                 ModInfoState.Loading -> CircularProgressIndicator(Modifier.align(Alignment.Center))
-                is ModInfoState.Success -> ModViewSuccessContent(info.data)
+                is ModInfoState.Success -> ModViewSuccessContent(
+                    info = info,
+                    files = state.files,
+                    character = state.character,
+                )
             }
         }
     }
 }
-
-suspend fun downloadFileFromZip(
-    file: ModPageResponse.AFile,
-    game: Game,
-    character: Character,
-    responseListener: ProgressListener,
-    unzipListener: ProgressListener
-): File? {
-    return try {
-        val downloadUrl = file.sDownloadUrl!!.replace("\\", "")
-        val validExt = listOf("7z", "zip", "rar")
-
-        val ext =  file.sFile!!.takeLastWhile { it != '.' }.lowercase()
-        assert(ext in validExt)
-
-        val res = NetHelper.client.get(downloadUrl) {
-            onDownload { sent, total ->
-                total?.let {
-                    responseListener.onProgress(it, sent)
-                }
-            }
-        }
-
-        val inputStream = res.bodyAsChannel().toInputStream()
-        val outputPath = Paths.get(
-            CharacterSync.rootDir.path,
-            game.name,
-            character.name,
-            file.sFile.removeSuffix(".$ext")
-        )
-
-        val path = if (outputPath.exists()) {
-            FileUtils.getNewName(outputPath.pathString)
-        } else  outputPath.pathString
-
-        val outputDir = File(path).also { it.mkdirs() }
-
-        FileUtils.extractUsing7z(inputStream, outputDir, unzipListener)
-        outputDir
-    } catch (e: Exception) {
-        println(e.stackTraceToString())
-        null
-    }
-}
-
-private fun buildMod(modDir: File, dataApi: DataApi, c: Character, data: ModPageResponse, file: ModPageResponse.AFile) =
-    Mod(
-        fileName = modDir.name,
-        game = dataApi.game.data,
-        character = c.name,
-        characterId = c.id,
-        enabled = false,
-        modLink = data.sProfileUrl,
-        gbId = data.idRow,
-        gbDownloadLink = file.sDownloadUrl,
-        gbFileName = file.sFile,
-        previewImages = data.aPreviewMedia.aImages.map {
-            val base =  it.sBaseUrl.replace("\\", "")
-            base + '/' + (it.sFile).replace("\\", "")
-        }
-    )
 
 @Composable
 private fun BoxScope.ModViewSuccessContent(
-    data: ModPageResponse,
+    info: ModInfoState.Success,
+    files: List<ModFile>,
+    character: Character?,
     modifier: Modifier = Modifier
 ) {
-    val dataApi = LocalDataApi.current
-    val scope = rememberCoroutineScope()
     val scrollState = rememberScrollState()
+    val scope = rememberCoroutineScope()
+    val dataApi = LocalDataApi.current
 
-    val character by produceState<Character?>(null) {
-        value = runCatching {
-            DB.characterDao.selectClosesMatch(dataApi.game,  data.aCategory.sName!!)
-        }
-            .getOrNull()
-    }
-
-    val installedMods by produceState<List<Mod>>(emptyList()) {
-        DB.modDao.observeModsByGbRowId(data.idRow).collect { mods ->
-            value = mods
-        }
-    }
-
-    val downloadAndCreateMod = remember(character) {
-        {
-            res: ModPageResponse,
-            file: ModPageResponse.AFile,
-            responseListener: ProgressListener,
-            unzipLister: ProgressListener,
-            onComplete: () -> Unit ->
-
-            scope.launch(Dispatchers.IO + NonCancellable) {
-                character?.let { c ->
-                    val modDir = downloadFileFromZip(
-                        file = file,
-                        game = dataApi.game,
-                        character = c,
-                        responseListener,
-                        unzipLister
-                    )
-                    if (modDir != null) {
-                        DB.modDao.insertOrUpdate(buildMod(modDir, dataApi, c, res, file))
-                    }
-                }
-            }
-                .invokeOnCompletion { onComplete() }
-        }
-    }
-
-    Column(Modifier.fillMaxSize().verticalScroll(scrollState)) {
+    Column(modifier.fillMaxSize().verticalScroll(scrollState)) {
         ContentRatings(
-            data.aContentRatings,
+            info.data.aContentRatings,
             modifier.fillMaxWidth()
         )
         ImagePreview(
-            data.aPreviewMedia,
+            info.data.aPreviewMedia,
             Modifier.fillMaxWidth()
         )
         Column {
-            data.aFiles.forEach { file ->
+            files.fastForEach { modFile ->
 
-                var downloadState by remember { mutableStateOf<ModDownloadState>(ModDownloadState.Idle) }
+                val (file, downloaded) = modFile
+                val downloadState = remember(modFile) { ModDownloadStateHolder(modFile, dataApi, character, info, scope) }
 
                 Row(
                     Modifier.width(IntrinsicSize.Max)
                 ) {
-                    val installed by remember(installedMods) {
-                        derivedStateOf { installedMods.map { it.gbDownloadLink }.contains(file.sDownloadUrl) }
-                    }
-
-                   Text("${file.sFile}@${file.sDownloadUrl}")
-
-
-                    when (val ds = downloadState) {
+                    Text("${file.sFile}@${file.sDownloadUrl}")
+                    when (downloadState.state) {
                         ModDownloadState.Idle -> {
-                            if (!installed) {
+                            if (!downloaded) {
                                 IconButton(
-                                    onClick = {
-                                        downloadState = ModDownloadState.InProgress.Downloading(0, 0, 0f)
-                                        val responseListener = ProgressListener { total: Long, complete: Long ->
-                                            downloadState = ModDownloadState.InProgress.Downloading(total, complete, (complete / total).toFloat())
-                                        }
-                                        val unzipListener = ProgressListener { total: Long, complete: Long ->
-                                            downloadState = ModDownloadState.InProgress.Unzipping(total, complete, (complete / total).toFloat())
-                                        }
-                                        downloadAndCreateMod(data, file, responseListener, unzipListener) {
-                                            downloadState = ModDownloadState.Idle
-                                        }
-                                    }
+                                    onClick = downloadState::download
                                 ) {
                                     Icon(
                                         imageVector = Icons.Outlined.Create,
@@ -315,27 +360,41 @@ private fun BoxScope.ModViewSuccessContent(
                                 }
                             }
                         }
-                        is ModDownloadState.InProgress -> {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                CircularProgressIndicator(progress = ds.progress,)
-                            }
+                        ModDownloadState.Downloading  -> {
 
-                            val total = remember(ds.total) {
-                                OS.humanReadableByteCountBin(ds.total)
-                            }
+                            val downloadProgress by downloadState.unzipProgress.collectAsState()
+                            val unzipProgress by downloadState.unzipProgress.collectAsState()
 
-                            val complete = remember(ds.complete) {
-                                OS.humanReadableByteCountBin(ds.complete)
-                            }
-
-                            val prefix = remember {
-                                when (ds) {
-                                    is ModDownloadState.InProgress.Downloading -> "Downloading"
-                                    is ModDownloadState.InProgress.Unzipping -> "Unzipping"
+                            val totalProgress by remember(downloadProgress, unzipProgress) {
+                                derivedStateOf {
+                                    (downloadProgress.frac + unzipProgress.frac / 2f).coerceIn(0f..1f)
                                 }
                             }
 
-                            Text("$prefix:\t$complete / $total")
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                CircularProgressIndicator(
+                                    progress = totalProgress
+                                )
+                            }
+
+                            val unzipString = remember(unzipProgress) {
+                                val complete = OS.humanReadableByteCountBin(unzipProgress.complete)
+                                val total = OS.humanReadableByteCountBin(unzipProgress.total)
+
+                                "Unzipping:  $complete / $total"
+                            }
+
+                            val downloadString = remember(downloadProgress) {
+                                val complete = OS.humanReadableByteCountBin(downloadProgress.complete)
+                                val total = OS.humanReadableByteCountBin(downloadProgress.total)
+
+                                "Downloading:  $complete / $total"
+                            }
+
+                            Column {
+                                Text(downloadString)
+                                Text(unzipString)
+                            }
                         }
                     }
                 }
