@@ -26,13 +26,3 @@ data class Tag(
 
     val name: String,
 )
-
-@Dao
-interface TagDao {
-
-    @Insert(onConflict = OnConflictStrategy.IGNORE)
-    suspend fun insert(tag: Tag)
-
-    @Delete
-    suspend fun delete(tag: Tag)
-}

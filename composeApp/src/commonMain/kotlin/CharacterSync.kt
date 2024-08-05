@@ -66,7 +66,7 @@ object CharacterSync {
 
         }
 
-        database.deleteUnused(used = seenMods.toList(), game = dataApi.game.data)
+        database.deleteUnusedMods(used = seenMods.toList(), game = dataApi.game.data)
     }
 
 

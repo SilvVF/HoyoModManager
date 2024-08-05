@@ -38,10 +38,10 @@ fun CharacterImage(
 ) {
     val database = LocalDatabase.current
     val modCount by produceState(0) {
-        database.observeCountByCharacter(character.name).collect { value = it }
+        database.subscribeToModCount(character.name).collect { value = it }
     }
     val enabledCount by produceState(0) {
-        database.observeEnabledCountByCharacter(character.name).collect { value = it }
+        database.subscribeToEnabledModCount(character.name).collect { value = it }
     }
 
     val gradientColor = remember(character) {

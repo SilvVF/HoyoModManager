@@ -10,8 +10,7 @@ import androidx.room.Transaction
 import androidx.room.Update
 import kotlinx.coroutines.flow.Flow
 
-private const val PREF_ID = 0
-
+internal const val PREF_ID = 0
 
 @Entity
 data class MetaData(
@@ -20,39 +19,3 @@ data class MetaData(
 
     val keepFilesOnClear: List<String> = emptyList()
 )
-
-@Dao
-interface PrefsDao {
-
-    @Insert(onConflict = OnConflictStrategy.IGNORE)
-    suspend fun insertMetaData(data: MetaData)
-
-    @Update
-    suspend fun updateMetaData(data: MetaData)
-
-    @Transaction
-    suspend fun addIgnoredFolder(id: Int = PREF_ID, path: String) {
-        val curr = selectMetaData()
-        if (curr != null) {
-            updateMetaData(curr.copy(keepFilesOnClear = curr.keepFilesOnClear + path))
-        } else {
-            insertMetaData(MetaData(emptyMap(), PREF_ID, listOf(path)))
-        }
-    }
-
-    @Transaction
-    suspend fun removeIgnoredFolder(id: Int = PREF_ID, path: String) {
-        val curr = selectMetaData()
-        if (curr != null) {
-            updateMetaData(curr.copy(keepFilesOnClear = curr.keepFilesOnClear - path))
-        } else {
-            insertMetaData(MetaData(emptyMap(), PREF_ID, emptyList()))
-        }
-    }
-
-    @Query("SELECT * FROM MetaData WHERE id = 0 LIMIT 1")
-    suspend fun selectMetaData(): MetaData?
-
-    @Query("SELECT * FROM MetaData WHERE id = 0 LIMIT 1")
-    fun observe(): Flow<MetaData?>
-}

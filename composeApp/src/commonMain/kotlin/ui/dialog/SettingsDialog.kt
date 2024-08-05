@@ -73,9 +73,9 @@ private suspend fun updateDir(path: String, game: Game) = AppDatabase.instance.q
 
 
     for((id, _) in idToFileName) {
-        val mod = selectById(id) ?: continue
+        val mod = selectModById(id) ?: continue
 
-        update(mod.copy(enabled = true))
+        updateMod(mod.copy(enabled = true))
     }
 }
 

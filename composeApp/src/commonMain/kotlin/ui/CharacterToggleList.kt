@@ -369,7 +369,7 @@ private fun ModActionPopups(
                         onCancel = dismiss,
                         onConfirm = {
                             database.launchQuery(scope) {
-                                insert(Tag(mod.id, text))
+                                insertTag(Tag(mod.id, text))
                             }
                         }
                     )
@@ -400,7 +400,7 @@ private fun ModActionPopups(
                                                     mod.fileName
                                                 )
                                                 path.toFile().deleteRecursively()
-                                                database.delete(mod)
+                                                database.deleteMod(mod)
                                             } catch (_: Exception) {
                                             }
                                         }
@@ -436,7 +436,7 @@ private fun ModActionPopups(
                                 FileUtils.renameFolder(filePath.toFile(), name)
                                     .onFailure { it.printStackTrace() }
                                     .onSuccess { renamed ->
-                                        database.update(
+                                        database.updateMod(
                                             mod.copy(fileName = renamed.name)
                                         )
                                     }
@@ -512,5 +512,5 @@ fun TagsList(
 }
 
 private suspend fun toggleModEnabled(fileName: String, enabled: Boolean) = with(AppDatabase.instance) {
-    selectByFileName(fileName)?.let { mod -> update(mod.copy(enabled = enabled)) }
+    selectModByFilename(fileName)?.let { mod -> updateMod(mod.copy(enabled = enabled)) }
 }

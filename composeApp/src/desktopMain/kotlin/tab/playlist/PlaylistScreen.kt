@@ -188,7 +188,7 @@ fun PlaylistScreen(
                                         IconButton(
                                             onClick = {
                                                 database.launchQuery(scope) {
-                                                    delete(playlist)
+                                                    deletePlaylist(playlist)
                                                 }
                                             }
                                         ) {
@@ -231,7 +231,7 @@ fun PlaylistScreen(
                                 try {
                                     val enabled = selectEnabledForGame(game.data)
 
-                                    val id = insert(
+                                    val id = insertPlaylist(
                                         Playlist(name = text, game = game)
                                     )
 
@@ -268,7 +268,7 @@ fun PlaylistScreen(
                         onConfirm = {
                             scope.launch(Dispatchers.IO) {
                                 database.query {
-                                    update(dialog.playlist.copy(name = text))
+                                    updatePlaylist(dialog.playlist.copy(name = text))
                                 }
                             }
                             currentDialog = null
@@ -346,7 +346,7 @@ fun PlaylistMods(
                         onCheckedChange = {
                             scope.launch(Dispatchers.IO) {
                                 database.query {
-                                    update(mod.copy(enabled = !mod.enabled))
+                                    updateMod(mod.copy(enabled = !mod.enabled))
                                 }
                             }
                         },

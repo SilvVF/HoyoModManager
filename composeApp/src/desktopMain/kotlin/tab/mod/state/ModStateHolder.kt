@@ -60,7 +60,7 @@ class ModStateHolder(
 
         state.map { it.info.success?.data?.aFiles }.filterNotNull().distinctUntilChanged()
             .combine(
-                database.observeModsByGbRowId(rowId)
+                database.subscribeToModByGbId(rowId)
             ) { files, mods ->
 
                 val links = mods.mapNotNull { it.gbDownloadLink }

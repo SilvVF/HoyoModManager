@@ -194,7 +194,7 @@ private fun DownloadButton(
                     horizontalArrangement = Arrangement.End
                 ) {
                     CircularProgressIndicator(
-                        progress = totalProgress
+                        progress = { totalProgress },
                     )
                     Column {
                         Text(downloadString)
