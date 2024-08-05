@@ -28,9 +28,23 @@ import java.util.zip.ZipInputStream
 import kotlin.io.path.exists
 
 
+fun interface ProgressListener {
+
+    fun onProgress(total: Long, complete: Long)
+}
+
+fun ProgressListener.asKtorListener() = object : io.ktor.client.content.ProgressListener  {
+    override suspend fun onProgress(bytesSentTotal: Long, contentLength: Long?) {
+        contentLength?.let {
+            this@asKtorListener.onProgress(total = contentLength, complete = bytesSentTotal)
+        }
+    }
+}
+
+
 private object ExtractItemsStandard {
 
-    fun extract(ins: InputStream, outputDir: File) {
+    fun extract(ins: InputStream, outputDir: File, progressListener: ProgressListener) {
 
         lateinit var  randomAccessFile: RandomAccessFile
         lateinit var inArchive: IInArchive
@@ -56,7 +70,7 @@ private object ExtractItemsStandard {
             val items = IntArray(itemsToExtract.size) { i -> itemsToExtract[i] }
             inArchive.extract(
                 items, false,  // Non-test mode
-                ExtractToFileCallback(inArchive, outputDir)
+                ExtractToFileCallback(inArchive, outputDir, progressListener)
             )
         } catch (e: Exception) {
             System.err.println("Error occurs: $e")
@@ -77,17 +91,20 @@ private object ExtractItemsStandard {
     class ExtractToFileCallback(
         private val inArchive: IInArchive,
         private val outputDir: File,
+        private val progressListener: ProgressListener
     ) : IArchiveExtractCallback {
 
         private var hash = 0
         private var size = 0
         private var index = 0
+        private var total = 0L
+        private var complete = 0L
         private var outputStream: OutputStream? = null
 
         @Throws(SevenZipException::class)
         override fun getStream(
             index: Int,
-            extractAskMode: ExtractAskMode
+            extractAskMode: ExtractAskMode,
         ): ISequentialOutStream {
 
             this.index = index
@@ -126,10 +143,10 @@ private object ExtractItemsStandard {
         override fun prepareOperation(extractAskMode: ExtractAskMode) = Unit
 
         @Throws(SevenZipException::class)
-        override fun setCompleted(completeValue: Long)= Unit
+        override fun setCompleted(completeValue: Long) = progressListener.onProgress(total, completeValue.also { complete = it })
 
         @Throws(SevenZipException::class)
-        override fun setTotal(total: Long)= Unit
+        override fun setTotal(total: Long) = progressListener.onProgress(total.also { this.total = it }, complete)
     }
 }
 
@@ -192,61 +209,7 @@ object FileUtils {
         return filename
     }
 
-    @Throws(IOException::class)
-    fun newFile(destinationDir: File, zipEntry: ZipEntry): File {
-        val destFile = File(destinationDir, zipEntry.name)
-
-        val destDirPath = destinationDir.canonicalPath
-        val destFilePath = destFile.canonicalPath
-
-        if (!destFilePath.startsWith(destDirPath + File.separator)) {
-            throw IOException("Entry is outside of the target dir: " + zipEntry.name)
-        }
-
-        return destFile
+    fun extractUsing7z(inputStream: InputStream, outputDir: File, progressListener: ProgressListener) {
+        ExtractItemsStandard.extract(inputStream, outputDir, progressListener)
     }
-
-
-    fun extractRar(inputStream: InputStream, outputDir: File) {
-        ExtractItemsStandard.extract(inputStream, outputDir)
-    }
-
-    fun extract7Zip(inputStream: InputStream, outputDir: File) {
-        ExtractItemsStandard.extract(inputStream, outputDir)
-    }
-
-
-    fun extractZip(inputStream: InputStream, outputDir: File) {
-
-        val buffer = ByteArray(1024)
-
-        ZipInputStream(inputStream).use { zis ->
-
-            var zipEntry: ZipEntry?
-            while (zis.nextEntry.also { zipEntry = it } != null) {
-                val newFile = newFile(outputDir, zipEntry!!)
-                if (zipEntry!!.isDirectory) {
-                    if (!newFile.isDirectory && !newFile.mkdirs()) {
-                        throw IOException("Failed to create directory $newFile")
-                    }
-                } else {
-                    // fix for Windows-created archives
-                    val parent = newFile.parentFile
-                    if (!parent.isDirectory && !parent.mkdirs()) {
-                        throw IOException("Failed to create directory $parent")
-                    }
-
-                    // write file content
-                    FileOutputStream(newFile).use { fos ->
-                        var len: Int
-                        while ((zis.read(buffer).also { len = it }) > 0) {
-                            fos.write(buffer, 0, len)
-                        }
-                    }
-                }
-            }
-            zis.closeEntry()
-        }
-    }
-
 }

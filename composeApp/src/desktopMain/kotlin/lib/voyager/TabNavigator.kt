@@ -55,7 +55,7 @@ fun TabNavigator(
 
 @OptIn(ExperimentalVoyagerApi::class)
 @Composable
-public fun FadeTabTransition(
+fun FadeTabTransition(
     navigator: TabNavigator,
     modifier: Modifier = Modifier,
     animationSpec: FiniteAnimationSpec<Float> = spring(stiffness = Spring.StiffnessMediumLow),
@@ -72,7 +72,7 @@ public fun FadeTabTransition(
 
 @OptIn(InternalVoyagerApi::class)
 @Composable
-public fun TabDisposable(navigator: TabNavigator, tabs: List<Tab>) {
+fun TabDisposable(navigator: TabNavigator, tabs: List<Tab>) {
     DisposableEffectIgnoringConfiguration(Unit) {
         onDispose {
             tabs.forEach {
@@ -86,12 +86,12 @@ class TabNavigator internal constructor(
     internal val navigator: Navigator
 ) {
 
-    public var current: Tab
+    var current: Tab
         get() = navigator.lastItem as Tab
         set(tab) = navigator.replaceAll(tab)
 
     @Composable
-    public fun saveableState(
+    fun saveableState(
         key: String,
         tab: Tab = current,
         content: @Composable () -> Unit

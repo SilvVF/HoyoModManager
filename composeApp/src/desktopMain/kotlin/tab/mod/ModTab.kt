@@ -67,8 +67,12 @@ private class ModView(val idRow: Int): Screen {
 
     @Composable
     override fun Content() {
+
+        val navigator = LocalNavigator.currentOrThrow
+
         ModViewContent(
             idRow,
+            onBackPressed = { navigator.pop() },
             Modifier.fillMaxSize()
         )
     }

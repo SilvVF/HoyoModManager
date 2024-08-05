@@ -142,33 +142,33 @@ data class ModPageResponse(
     @Serializable
     data class AFile(
         @SerialName("_bContainsExe")
-        val bContainsExe: Boolean,
+        val bContainsExe: Boolean? = null,
         @SerialName("_idRow")
         val idRow: Int,
         @SerialName("_nDownloadCount")
-        val nDownloadCount: Int,
+        val nDownloadCount: Int? = null,
         @SerialName("_nFilesize")
-        val nFilesize: Int,
+        val nFilesize: Int? = null,
         @SerialName("_sAnalysisResult")
-        val sAnalysisResult: String,
+        val sAnalysisResult: String? = null,
         @SerialName("_sAnalysisResultCode")
-        val sAnalysisResultCode: String,
+        val sAnalysisResultCode: String? = null,
         @SerialName("_sAnalysisState")
-        val sAnalysisState: String,
+        val sAnalysisState: String? = null,
         @SerialName("_sAvastAvResult")
-        val sAvastAvResult: String,
+        val sAvastAvResult: String? = null,
         @SerialName("_sClamAvResult")
-        val sClamAvResult: String,
+        val sClamAvResult: String? = null,
         @SerialName("_sDescription")
-        val sDescription: String,
+        val sDescription: String? = null,
         @SerialName("_sDownloadUrl")
-        val sDownloadUrl: String,
+        val sDownloadUrl: String? = null,
         @SerialName("_sFile")
-        val sFile: String,
+        val sFile: String? = null,
         @SerialName("_sMd5Checksum")
-        val sMd5Checksum: String,
+        val sMd5Checksum: String? = null,
         @SerialName("_tsDateAdded")
-        val tsDateAdded: Int
+        val tsDateAdded: Int? = null
     )
 
     @Serializable

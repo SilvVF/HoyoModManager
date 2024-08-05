@@ -36,8 +36,20 @@ data class Mod(
     @ColumnInfo(name = "enabled", index = true)
     val enabled: Boolean,
 
+    @ColumnInfo(name = "preview_images")
+    val previewImages: List<String> = emptyList(),
+
+    @ColumnInfo(name = "gb_id")
+    val gbId: Int? = null,
+
     @ColumnInfo(name = "mod_link")
     val modLink: String? = null,
+
+    @ColumnInfo(name = "gb_file_name")
+    val gbFileName: String? = null,
+
+    @ColumnInfo(name = "gb_download_link")
+    val gbDownloadLink: String? = null,
 
     @PrimaryKey(autoGenerate = true)
     val id: Int = 0
@@ -96,6 +108,9 @@ interface ModDao {
 
     @Query("SELECT * FROM mod WHERE character = :name")
     fun observeByCharacter(name: String): Flow<List<Mod>>
+
+    @Query("SELECT * FROM mod WHERE gb_id = :id")
+    fun observeModsByGbRowId(id: Int): Flow<List<Mod>>
 
     @Update
     suspend fun update(mod: Mod)
