@@ -1,11 +1,15 @@
 package core.db
 
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.room.Transactor
 import androidx.room.TypeConverter
 import androidx.room.TypeConverters
-import androidx.room.util.performInTransactionSuspending
+import androidx.room.immediateTransaction
+import androidx.room.useReaderConnection
+import androidx.room.useWriterConnection
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import core.model.Character
 import core.model.CharacterDao
@@ -19,14 +23,17 @@ import core.model.PlaylistModCrossRef
 import core.model.PrefsDao
 import core.model.Tag
 import core.model.TagDao
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.io.File
-import kotlin.coroutines.coroutineContext
+import javax.xml.crypto.Data
+import kotlin.coroutines.CoroutineContext
 
 @Database(
     entities = [
@@ -41,12 +48,61 @@ import kotlin.coroutines.coroutineContext
     exportSchema = true
 )
 @TypeConverters(Converters::class)
-abstract class AppDatabase : RoomDatabase() {
-    abstract fun modDao(): ModDao
-    abstract fun prefsDao(): PrefsDao
-    abstract fun characterDao(): CharacterDao
-    abstract fun tagDao(): TagDao
-    abstract fun playlistDao(): PlaylistDao
+abstract class InternalDatabase : RoomDatabase() {
+    abstract val dao: DatabaseDao
+}
+
+class AppDatabase(
+    private val delegate: InternalDatabase
+) : DatabaseDao by delegate.dao {
+
+    private val queryExecutor: CoroutineContext = Dispatchers.IO
+
+    fun launchQuery(scope: CoroutineScope, block: suspend AppDatabase.() -> Unit) = with(delegate) {
+        scope.launch(queryExecutor) {
+            block(this@AppDatabase)
+        }
+    }
+
+    fun launchQuery(block: suspend AppDatabase.() -> Unit) = with(delegate) {
+        CoroutineScope(queryExecutor).launch {
+            block(this@AppDatabase)
+        }
+    }
+
+    suspend fun query(block: suspend AppDatabase.() -> Unit) = with(delegate) {
+        withContext(queryExecutor) {
+            block(this@AppDatabase)
+        }
+    }
+
+    fun close() = delegate.close()
+
+    companion object {
+
+        val instance by lazy(LazyThreadSafetyMode.SYNCHRONIZED) {
+            AppDatabase(getRoomDatabase(getDatabaseBuilder()))
+        }
+
+        private fun getDatabaseBuilder(): RoomDatabase.Builder<InternalDatabase> {
+            val dbFile = File(OS.getCacheDir(), "hmm.db")
+
+            return Room.databaseBuilder<InternalDatabase>(
+                name = dbFile.absolutePath,
+            )
+        }
+
+        private fun getRoomDatabase(
+            builder: RoomDatabase.Builder<InternalDatabase>
+        ): InternalDatabase {
+            return builder
+                .setDriver(BundledSQLiteDriver())
+                .fallbackToDestructiveMigration(true)
+                .fallbackToDestructiveMigrationOnDowngrade(true)
+                .setQueryCoroutineContext(Dispatchers.IO)
+                .build()
+        }
+    }
 }
 
 private const val KEY_VALUE_SEPARATOR = "->"
@@ -107,39 +163,6 @@ class Converters {
     }
 }
 
-object DB {
+val LocalDatabase = staticCompositionLocalOf<AppDatabase> { error("Not provided") }
 
-    private val instance by lazy(LazyThreadSafetyMode.SYNCHRONIZED) {
-        getRoomDatabase(getDatabaseBuilder())
-    }
-
-    val modDao by lazy { instance.modDao() }
-
-    val prefsDao by lazy { instance.prefsDao() }
-
-    val characterDao by lazy { instance.characterDao() }
-
-    val tagDao by lazy { instance.tagDao() }
-
-    val playlistDao by lazy { instance.playlistDao() }
-
-    private fun getDatabaseBuilder(): RoomDatabase.Builder<AppDatabase> {
-        val dbFile = File(OS.getCacheDir(), "hmm.db")
-
-        return Room.databaseBuilder<AppDatabase>(
-            name = dbFile.absolutePath,
-        )
-    }
-
-    private fun getRoomDatabase(
-        builder: RoomDatabase.Builder<AppDatabase>
-    ): AppDatabase {
-        return builder
-            .setDriver(BundledSQLiteDriver())
-            .fallbackToDestructiveMigration(true)
-            .fallbackToDestructiveMigrationOnDowngrade(true)
-            .setQueryCoroutineContext(Dispatchers.IO)
-            .build()
-    }
-}
 

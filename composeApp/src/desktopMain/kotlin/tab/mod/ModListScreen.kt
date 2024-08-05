@@ -21,10 +21,13 @@ import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
@@ -38,9 +41,11 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.snapshots.SnapshotStateList
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import core.db.DB
+import core.db.LocalDatabase
 import core.model.Character
 import core.model.CharacterWithModsAndTags
 import core.model.Game
@@ -79,6 +84,7 @@ fun GameModListScreen(
     modifier: Modifier = Modifier,
 ) {
     val dataApi = LocalDataApi.current
+    val database = LocalDatabase.current
     val scope = rememberCoroutineScope()
     val syncTrigger = remember { Channel<SyncRequest>() }
     val filters = remember { mutableStateListOf<String>() }
@@ -89,7 +95,7 @@ fun GameModListScreen(
         snapshotFlow { selectedGame }
             .onEach { filters.clear() }
             .flatMapLatest { g ->
-                DB.characterDao.observeByGameWithMods(g).map { items ->
+                database.observeByGameWithMods(g).map { items ->
                     items.map { (character, modsWithTags) ->
                         CharacterWithModsAndTags(
                             character,
@@ -120,6 +126,7 @@ fun GameModListScreen(
 
     Scaffold(
         modifier = modifier,
+        containerColor = Color.Transparent,
         snackbarHost = {
             SnackbarHost(snackbarHostState)
         },
@@ -157,8 +164,7 @@ fun GameModListScreen(
             characters = filteredCharacters,
             onCharacterIconClick = {
                 currentDialog = Dialog.AddMod(it)
-            },
-            game = LocalDataApi.current.game
+            }
         )
     }
 
@@ -233,33 +239,40 @@ private fun CharacterListTopBar(
     refresh: () -> Unit
 ) {
     TopAppBar(
-        title = { Text("Filters") },
-        actions = {
-            val elements = LocalDataApi.current.elements
-            IconButton(onClick = { filters.clear() }) {
-                Icon(
-                    imageVector = Icons.Outlined.Clear,
-                    contentDescription = "Clear"
-                )
-            }
-            LazyRow(Modifier.weight(1f)) {
-                items(elements, key = { it }) { element ->
-                    val selected by remember(elements, filters) {
-                        derivedStateOf { filters.contains(element.lowercase()) }
-                    }
-                    FilterChip(
-                        selected = selected,
-                        onClick = { filters.toggle(element.lowercase()) },
-                        modifier = Modifier.padding(4.dp).animateItemPlacement(),
-                        leadingIcon = {
-                            Icon(Icons.Outlined.Check, null)
-                        },
-                        label = {
-                            Text(element)
-                        }
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Filters")
+                val elements = LocalDataApi.current.elements
+                IconButton(onClick = { filters.clear() }) {
+                    Icon(
+                        imageVector = Icons.Outlined.Clear,
+                        contentDescription = "Clear"
                     )
                 }
+                LazyRow(Modifier.weight(1f)) {
+                    items(elements, key = { it }) { element ->
+                        val selected by remember(elements, filters) {
+                            derivedStateOf { filters.contains(element.lowercase()) }
+                        }
+                        FilterChip(
+                            selected = selected,
+                            onClick = { filters.toggle(element.lowercase()) },
+                            modifier = Modifier.padding(4.dp).animateItemPlacement(),
+                            leadingIcon = {
+                                Icon(Icons.Outlined.Check, null)
+                            },
+                            label = {
+                                Text(element)
+                            }
+                        )
+                    }
+                }
             }
+        },
+        colors = TopAppBarDefaults.topAppBarColors(
+            containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(3.dp)
+        ),
+        actions = {
             FilterChip(
                 selected = modAvailableOnly,
                 onClick = toggleEnabledOnly,

@@ -57,11 +57,13 @@ kotlin {
             
             implementation("cafe.adriel.voyager:voyager-navigator:$voyagerVersion")
             implementation("cafe.adriel.voyager:voyager-transitions:$voyagerVersion")
+
+            implementation("androidx.core:core-ktx:1.13.1")
+            implementation("androidx.room:room-ktx:2.6.1")
         }
         desktopMain.dependencies {
             api("io.github.qdsfdhvh:image-loader-extension-imageio:1.8.2")
             implementation(compose.desktop.currentOs)
-            implementation("app.cash.sqldelight:sqlite-driver:2.0.0")
         }
     }
     @OptIn(ExperimentalKotlinGradlePluginApi::class)

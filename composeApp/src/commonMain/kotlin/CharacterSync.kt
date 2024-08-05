@@ -1,5 +1,5 @@
 import core.api.DataApi
-import core.db.DB
+import core.db.AppDatabase
 import core.model.Mod
 import core.model.Character
 import core.model.Game
@@ -11,8 +11,7 @@ import java.io.File
 
 object CharacterSync {
 
-    private val modDao = DB.modDao
-    private val characterDao = DB.characterDao
+    val database = AppDatabase.instance
 
     val running = mutableMapOf<Game, Job>()
     val initialSyncDone = mutableSetOf<Game>()
@@ -29,14 +28,14 @@ object CharacterSync {
 
         val fetchFromNetwork = suspend {
             dataApi.characterList().also {
-                characterDao.updateFromCharacters(it)
+                database.updateFromCharacters(it)
             }
         }
 
         val characters = if (fromNetwork) {
             fetchFromNetwork()
         } else {
-            characterDao.selectByGame(dataApi.game).ifEmpty { fetchFromNetwork() }
+            database.selectByGame(dataApi.game).ifEmpty { fetchFromNetwork() }
         }
 
         val gameDir = File(rootDir, dataApi.game.name)
@@ -54,7 +53,7 @@ object CharacterSync {
             }
 
             val modDirFiles = run {
-                val path = DB.prefsDao.select()?.exportModDir?.get(dataApi.game.data) ?: return@run emptyList<File>()
+                val path = database.selectMetaData()?.exportModDir?.get(dataApi.game.data) ?: return@run emptyList<File>()
                 File(path).listFiles()?.toList() ?: emptyList()
             }
 
@@ -67,12 +66,12 @@ object CharacterSync {
 
         }
 
-        modDao.deleteUnused(used = seenMods.toList(), game = dataApi.game.data)
+        database.deleteUnused(used = seenMods.toList(), game = dataApi.game.data)
     }
 
 
     private suspend fun updateMod(file: File, character: Character, modDirFiles: List<File>) {
-        modDao.insertOrUpdate(
+        database.insertOrUpdate(
             Mod(
                 characterId = character.id,
                 game = character.game.data,

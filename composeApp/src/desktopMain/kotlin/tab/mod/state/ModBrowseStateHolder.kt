@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import net.model.gamebanana.CategoryContentResponse
 import net.model.gamebanana.CategoryListResponseItem
+import net.model.gamebanana.UIConfig
 import tab.mod.state.BrowseState.Failure
 import tab.mod.state.BrowseState.Loading
 import tab.mod.state.BrowseState.Success
@@ -23,10 +24,11 @@ sealed class BrowseState(
 
     data  class Success(
         override val gbUrl: String,
+        val uiConfig: UIConfig,
         val pageCount: Int,
         val page: Int,
         val mods: Map<Int, PageLoadState>,
-        val subCategories: List<CategoryListResponseItem>
+        val subCategories: List<CategoryListResponseItem>,
     ): BrowseState(gbUrl) {
 
         sealed interface PageLoadState {
@@ -86,6 +88,7 @@ class ModBrowseStateHolder(
             Success(
                 page = 1,
                 gbUrl = it.gbUrl,
+                uiConfig = GameBananaApi.uiConfig(categoryId),
                 pageCount = res.aMetadata.nRecordCount / res.aMetadata.nPerpage,
                 mods = mapOf(1 to PageLoadState.Success(res.aRecords)),
                 subCategories = GameBananaApi.categories(dataApi.skinCategoryId)

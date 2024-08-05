@@ -58,7 +58,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
 import com.seiko.imageloader.ui.AutoSizeImage
-import core.db.DB
+import core.db.LocalDatabase
 import core.model.Character
 import core.model.Game
 import core.model.Mod
@@ -87,11 +87,12 @@ fun PlaylistScreen(
     val scope = rememberCoroutineScope()
     val game by remember { mutableStateOf(Game.Genshin) }
     var currentDialog by remember { mutableStateOf<PlaylistDialog?>(null) }
+    val database = LocalDatabase.current
 
     val mods by produceState<List<ModWithTags>>(emptyList()) {
         snapshotFlow { game }
             .flatMapLatest {
-                DB.modDao.observeAllModsWithTags(game.data)
+                database.observeAllModsWithTags(game.data)
             }
             .collect { modsWithTags ->
                 value = modsWithTags
@@ -101,7 +102,7 @@ fun PlaylistScreen(
     val playlists by produceState(emptyList()) {
         snapshotFlow { game }
             .flatMapLatest {
-                DB.playlistDao.subscribeToPlaylistsWithModsAndTags(game)
+               database.subscribeToPlaylistsWithModsAndTags(game)
             }
             .collect { playlistWithMods ->
                 value = playlistWithMods.map { (playlist, modsWithTags) ->
@@ -186,8 +187,8 @@ fun PlaylistScreen(
                                         }
                                         IconButton(
                                             onClick = {
-                                                scope.launch(Dispatchers.IO) {
-                                                    DB.playlistDao.delete(playlist)
+                                                database.launchQuery(scope) {
+                                                    delete(playlist)
                                                 }
                                             }
                                         ) {
@@ -196,7 +197,7 @@ fun PlaylistScreen(
                                         IconButton(
                                             onClick = {
                                                 scope.launch(Dispatchers.IO) {
-                                                    DB.modDao.enableAndDisable(enabled = mods.map { it.mod.id }, game)
+                                                   database.enableAndDisable(enabled = mods.map { it.mod.id }, game)
                                                 }
                                             }
                                         ) {
@@ -226,15 +227,15 @@ fun PlaylistScreen(
                         onValueChange = { text = it },
                         message = { Message("Create a name for the playlist.") },
                         onConfirm = {
-                            scope.launch(Dispatchers.IO) {
+                            database.launchQuery(scope) {
                                 try {
-                                    val enabled = DB.modDao.selectEnabledForGame(game.data)
+                                    val enabled = selectEnabledForGame(game.data)
 
-                                    val id = DB.playlistDao.insert(
+                                    val id = insert(
                                         Playlist(name = text, game = game)
                                     )
 
-                                    DB.playlistDao.insert(
+                                    insertAll(
                                         enabled.map { PlaylistModCrossRef(id.toInt(), it.id) }
                                     )
                                 } catch (_: Exception) {
@@ -266,7 +267,9 @@ fun PlaylistScreen(
                         message = { Message("rename the playlist.") },
                         onConfirm = {
                             scope.launch(Dispatchers.IO) {
-                                DB.playlistDao.update(dialog.playlist.copy(name = text))
+                                database.query {
+                                    update(dialog.playlist.copy(name = text))
+                                }
                             }
                             currentDialog = null
                         },
@@ -285,6 +288,7 @@ fun PlaylistMods(
     modifier: Modifier = Modifier
 ) {
     val scope = rememberCoroutineScope()
+    val database = LocalDatabase.current
     LazyVerticalGrid(
         columns = GridCells.Fixed(2),
         contentPadding = paddingValues,
@@ -309,7 +313,7 @@ fun PlaylistMods(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     val character by produceState<Character?>(null) {
-                        value = DB.characterDao.selectById(mod.characterId, Game.fromByte(mod.game))
+                        value = database.selectById(mod.characterId, Game.fromByte(mod.game))
                     }
                     val gradientColor = remember(character) {
                         val random = Random(character.hashCode())
@@ -341,7 +345,9 @@ fun PlaylistMods(
                         checked = mod.enabled,
                         onCheckedChange = {
                             scope.launch(Dispatchers.IO) {
-                                DB.modDao.update(mod.copy(enabled = !mod.enabled))
+                                database.query {
+                                    update(mod.copy(enabled = !mod.enabled))
+                                }
                             }
                         },
                     )

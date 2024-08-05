@@ -17,7 +17,6 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.wrapContentHeight
@@ -61,14 +60,14 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalViewConfiguration
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastForEach
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
 import core.FileUtils
-import core.db.DB
+import core.db.AppDatabase
+import core.db.LocalDatabase
 import core.model.Character
 import core.model.CharacterWithModsAndTags
 import core.model.Game
@@ -89,7 +88,6 @@ fun CharacterToggleList(
     paddingValues: PaddingValues,
     characters: List<CharacterWithModsAndTags>,
     onCharacterIconClick: (character: Character) -> Unit,
-    game: Game,
 ) {
     val lazyGridState = rememberLazyGridState()
     val scope = rememberCoroutineScope()
@@ -353,6 +351,7 @@ private fun ModActionPopups(
     modifier: Modifier = Modifier
 ) {
     var offset by remember { mutableStateOf(IntOffset.Zero)}
+    val database = LocalDatabase.current
     Popup(
         alignment = Alignment.Center,
         offset = offset,
@@ -369,13 +368,9 @@ private fun ModActionPopups(
                         onValueChange = { text = it },
                         onCancel = dismiss,
                         onConfirm = {
-                            scope.launch(Dispatchers.IO) {
-                                try {
-                                    DB.tagDao.insert(Tag(mod.id, text))
-                                } catch (_: Exception) {
-                                }
+                            database.launchQuery(scope) {
+                                insert(Tag(mod.id, text))
                             }
-                            dismiss()
                         }
                     )
                 }
@@ -405,7 +400,7 @@ private fun ModActionPopups(
                                                     mod.fileName
                                                 )
                                                 path.toFile().deleteRecursively()
-                                                DB.modDao.delete(mod)
+                                                database.delete(mod)
                                             } catch (_: Exception) {
                                             }
                                         }
@@ -441,7 +436,7 @@ private fun ModActionPopups(
                                 FileUtils.renameFolder(filePath.toFile(), name)
                                     .onFailure { it.printStackTrace() }
                                     .onSuccess { renamed ->
-                                        DB.modDao.update(
+                                        database.update(
                                             mod.copy(fileName = renamed.name)
                                         )
                                     }
@@ -516,6 +511,6 @@ fun TagsList(
     }
 }
 
-private suspend fun toggleModEnabled(fileName: String, enabled: Boolean) = with(DB.modDao) {
+private suspend fun toggleModEnabled(fileName: String, enabled: Boolean) = with(AppDatabase.instance) {
     selectByFileName(fileName)?.let { mod -> update(mod.copy(enabled = enabled)) }
 }

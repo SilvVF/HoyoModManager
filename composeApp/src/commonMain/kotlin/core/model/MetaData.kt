@@ -25,33 +25,33 @@ data class MetaData(
 interface PrefsDao {
 
     @Insert(onConflict = OnConflictStrategy.IGNORE)
-    suspend fun insert(data: MetaData)
+    suspend fun insertMetaData(data: MetaData)
 
     @Update
-    suspend fun update(data: MetaData)
+    suspend fun updateMetaData(data: MetaData)
 
     @Transaction
     suspend fun addIgnoredFolder(id: Int = PREF_ID, path: String) {
-        val curr = select()
+        val curr = selectMetaData()
         if (curr != null) {
-            update(curr.copy(keepFilesOnClear = curr.keepFilesOnClear + path))
+            updateMetaData(curr.copy(keepFilesOnClear = curr.keepFilesOnClear + path))
         } else {
-            insert(MetaData(emptyMap(), PREF_ID, listOf(path)))
+            insertMetaData(MetaData(emptyMap(), PREF_ID, listOf(path)))
         }
     }
 
     @Transaction
     suspend fun removeIgnoredFolder(id: Int = PREF_ID, path: String) {
-        val curr = select()
+        val curr = selectMetaData()
         if (curr != null) {
-            update(curr.copy(keepFilesOnClear = curr.keepFilesOnClear - path))
+            updateMetaData(curr.copy(keepFilesOnClear = curr.keepFilesOnClear - path))
         } else {
-            insert(MetaData(emptyMap(), PREF_ID, emptyList()))
+            insertMetaData(MetaData(emptyMap(), PREF_ID, emptyList()))
         }
     }
 
     @Query("SELECT * FROM MetaData WHERE id = 0 LIMIT 1")
-    suspend fun select(): MetaData?
+    suspend fun selectMetaData(): MetaData?
 
     @Query("SELECT * FROM MetaData WHERE id = 0 LIMIT 1")
     fun observe(): Flow<MetaData?>

@@ -26,7 +26,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.seiko.imageloader.ui.AutoSizeImage
-import core.db.DB
+import core.db.LocalDatabase
 import core.model.Character
 import kotlin.random.Random
 
@@ -36,11 +36,12 @@ fun CharacterImage(
     onIconClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val database = LocalDatabase.current
     val modCount by produceState(0) {
-        DB.modDao.observeCountByCharacter(character.name).collect { value = it }
+        database.observeCountByCharacter(character.name).collect { value = it }
     }
     val enabledCount by produceState(0) {
-        DB.modDao.observeEnabledCountByCharacter(character.name).collect { value = it }
+        database.observeEnabledCountByCharacter(character.name).collect { value = it }
     }
 
     val gradientColor = remember(character) {

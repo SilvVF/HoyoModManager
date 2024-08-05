@@ -10,6 +10,8 @@ import androidx.compose.ui.window.application
 import com.seiko.imageloader.ImageLoader
 import com.seiko.imageloader.LocalImageLoader
 import com.seiko.imageloader.component.setupDefaultComponents
+import core.db.AppDatabase
+import core.db.LocalDatabase
 
 fun main() = application {
     Window(
@@ -18,7 +20,8 @@ fun main() = application {
     ) {
         CompositionLocalProvider(
             LocalImageLoader provides remember { generateImageLoader() },
-            LocalSnackBarHostState provides remember { SnackbarHostState() }
+            LocalSnackBarHostState provides remember { SnackbarHostState() },
+            LocalDatabase provides AppDatabase.instance
         ) {
            App()
         }

@@ -1,11 +1,13 @@
 package tab.mod
 
+import SearchResult
 import tab.ReselectTab
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import cafe.adriel.voyager.core.screen.Screen
@@ -18,12 +20,19 @@ import core.api.GenshinApi
 import core.api.StarRailApi
 import core.api.ZZZApi
 import core.model.Game.*
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.receiveAsFlow
 import lib.voyager.Tab
+import lib.voyager.TabNavigator
 import tab.ComposeReselectTab
 import tab.LaunchedOnReselect
+import tab.SearchableTab
 import ui.LocalDataApi
 
-data object ModTab: Tab, ComposeReselectTab by ReselectTab.compose()  {
+data object ModTab: Tab, ComposeReselectTab by ReselectTab.compose(), SearchableTab {
+
+    @Transient
+    private val onResultChannel = Channel<SearchResult>()
 
     @Composable
     override fun Icon() =
@@ -35,14 +44,29 @@ data object ModTab: Tab, ComposeReselectTab by ReselectTab.compose()  {
     @Composable
     override fun Content() {
         Navigator(ModBrowse(GenshinApi.skinCategoryId)) { navigator ->
-
             LaunchedOnReselect {
                 navigator.popUntilRoot()
+            }
+
+            LaunchedEffect(onResultChannel) {
+                onResultChannel.receiveAsFlow().collect {
+                    it.route?.let { r ->
+                        navigator.replaceAll(
+                            navigator.items.filterNot { it == r } + r
+                        )
+                    }
+                }
             }
 
             ModTabContent(navigator)
         }
     }
+
+    override suspend fun results(query: String): List<SearchResult> {
+        return emptyList()
+    }
+
+    override fun onResultSelected(result: SearchResult, navigator: TabNavigator) {}
 }
 
 @Composable
@@ -63,7 +87,9 @@ fun ModTabContent(navigator: Navigator) {
     }
 }
 
-private class ModView(val idRow: Int): Screen {
+private class ModView(
+    val idRow: Int,
+): Screen {
 
     @Composable
     override fun Content() {

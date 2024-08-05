@@ -1,5 +1,6 @@
 package tab
 
+import SearchResult
 import androidx.annotation.CallSuper
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -10,7 +11,14 @@ import kotlinx.coroutines.flow.FlowCollector
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import lib.voyager.Tab
+import lib.voyager.TabNavigator
 
+interface SearchableTab {
+
+    suspend fun results(query: String): List<SearchResult>
+
+    fun onResultSelected(result: SearchResult, navigator: TabNavigator)
+}
 
 interface ReselectTab {
 

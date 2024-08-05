@@ -2,7 +2,7 @@ package tab.mod.state
 
 import core.api.DataApi
 import core.api.GameBananaApi
-import core.db.DB
+import core.db.AppDatabase
 import core.model.Character
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -42,7 +42,8 @@ sealed interface ModInfoState {
 class ModStateHolder(
     private val rowId: Int,
     private val dataApi: DataApi,
-    private val scope: CoroutineScope
+    private val scope: CoroutineScope,
+    private val database: AppDatabase = AppDatabase.instance
 ) {
     private val _state = MutableStateFlow(ModState())
     val state: StateFlow<ModState> get() = _state.asStateFlow()
@@ -52,14 +53,14 @@ class ModStateHolder(
             .filterNotNull()
             .distinctUntilChanged()
             .onEach { name ->
-                val match = DB.characterDao.selectClosesMatch(dataApi.game, name)
+                val match = database.selectClosesMatch(dataApi.game, name)
                 _state.update { it.copy(character = match) }
             }
             .launchIn(scope)
 
         state.map { it.info.success?.data?.aFiles }.filterNotNull().distinctUntilChanged()
             .combine(
-                DB.modDao.observeModsByGbRowId(rowId)
+                database.observeModsByGbRowId(rowId)
             ) { files, mods ->
 
                 val links = mods.mapNotNull { it.gbDownloadLink }

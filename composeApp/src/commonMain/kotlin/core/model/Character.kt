@@ -54,6 +54,21 @@ interface CharacterDao {
     @Query("SELECT * FROM character WHERE id = :id AND game = :game LIMIT 1")
     suspend fun selectById(id: Int, game: Game): Character?
 
+    @Query(
+        """
+            SELECT 
+                COUNT(DISTINCT c.name) + COUNT(DISTINCT m.file_name)
+            FROM 
+                character c
+            LEFT JOIN 
+                mod m ON m.character_id = c.id
+            WHERE 
+                c.game = :game AND m.game = :game AND (:search LIKE  c.name OR :search LIKE m.file_name)
+            """
+    )
+    suspend fun searchResultsForString(search: String, game: Game): Int
+
+
     @Query("SELECT * FROM character WHERE :name LIKE name AND game = :game LIMIT 1")
     suspend fun selectClosesMatch(game: Game, name: String): Character?
 

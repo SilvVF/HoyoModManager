@@ -7,7 +7,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import core.FileUtils
 import core.api.DataApi
-import core.db.DB
+import core.db.AppDatabase
 import core.model.Character
 import core.model.Mod
 import io.ktor.client.plugins.onDownload
@@ -48,6 +48,7 @@ class ModDownloadStateHolder(
     private val character: Character? = null,
     private val info: ModInfoState.Success,
     private val scope: CoroutineScope,
+    private val database: AppDatabase = AppDatabase.instance
 ) {
     /* These happen at the same time bc the file is read through and input stream when extracting*/
     val downloadProgress = MutableStateFlow(Progress.Zero)
@@ -109,7 +110,7 @@ class ModDownloadStateHolder(
             unzipProgress.value = Progress(total, complete)
         }
 
-        DB.modDao.insertOrUpdate(
+        database.insertOrUpdate(
             buildMod(dir, dataApi, character, info.data, file)
         )
     }

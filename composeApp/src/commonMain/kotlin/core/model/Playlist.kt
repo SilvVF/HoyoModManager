@@ -6,14 +6,12 @@ import androidx.room.Delete
 import androidx.room.Embedded
 import androidx.room.Entity
 import androidx.room.ForeignKey
-import androidx.room.Index
 import androidx.room.Insert
 import androidx.room.Junction
 import androidx.room.PrimaryKey
 import androidx.room.Query
 import androidx.room.Relation
 import androidx.room.RewriteQueriesToDropUnusedColumns
-import androidx.room.RoomWarnings
 import androidx.room.Transaction
 import androidx.room.Update
 import kotlinx.coroutines.flow.Flow
@@ -115,6 +113,6 @@ interface PlaylistDao {
     suspend fun insert(playlistModCrossRef: PlaylistModCrossRef)
 
     @Insert
-    suspend fun insert(playlistModCrossRef: List<PlaylistModCrossRef>)
+    suspend fun insertAll(playlistModCrossRef: List<PlaylistModCrossRef>)
 
 }

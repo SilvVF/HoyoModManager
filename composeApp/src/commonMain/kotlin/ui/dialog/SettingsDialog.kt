@@ -16,7 +16,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material3.Card
-import androidx.compose.material3.Divider
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -36,19 +35,19 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastForEach
 import androidx.compose.ui.window.Dialog
-import core.db.DB
-import core.model.MetaData
+import core.db.AppDatabase
+import core.db.LocalDatabase
 import core.model.Game
+import core.model.MetaData
 import core.rememberDirectoryPickerLauncher
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import java.io.File
 
-private suspend fun updateDir(path: String, game: Game) = with(DB.prefsDao) {
-    val prev = select()
+private suspend fun updateDir(path: String, game: Game) = AppDatabase.instance.query {
+    val prev = selectMetaData()
     if (prev != null) {
-        update(
+        updateMetaData(
             prev.copy(
                 exportModDir = prev.exportModDir?.toMutableMap()?.apply {
                     this[game.data] = path
@@ -56,7 +55,7 @@ private suspend fun updateDir(path: String, game: Game) = with(DB.prefsDao) {
             )
         )
     } else {
-        insert(
+        insertMetaData(
             MetaData(mapOf(game.data to path))
         )
     }
@@ -74,9 +73,9 @@ private suspend fun updateDir(path: String, game: Game) = with(DB.prefsDao) {
 
 
     for((id, _) in idToFileName) {
-        val mod = DB.modDao.selectById(id) ?: continue
+        val mod = selectById(id) ?: continue
 
-        DB.modDao.update(mod.copy(enabled = true))
+        update(mod.copy(enabled = true))
     }
 }
 
@@ -86,9 +85,10 @@ fun SettingsDialog(
     onDismissRequest: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
+    val database = LocalDatabase.current
 
     val currentDirs by produceState(emptyMap()) {
-        DB.prefsDao.observe().collectLatest { prefs ->
+        database.observe().collectLatest { prefs ->
             value = buildMap {
                 Game.entries.forEach { game ->
                     put(game, prefs?.exportModDir?.get(game.data)?.let(::File))
@@ -98,7 +98,7 @@ fun SettingsDialog(
     }
 
     val ignored by produceState(emptyList()) {
-        DB.prefsDao.observe().collectLatest { prefs ->
+        database.observe().collectLatest { prefs ->
            value = prefs?.keepFilesOnClear.orEmpty()
         }
     }
@@ -110,8 +110,8 @@ fun SettingsDialog(
         title = "select a dir to ignore",
     ) { directory ->
         directory?.path?.let {
-            scope.launch(Dispatchers.IO){
-                DB.prefsDao.addIgnoredFolder(path = directory.file.path)
+            database.launchQuery(scope) {
+                addIgnoredFolder(path = directory.file.path)
             }
         }
     }
@@ -189,8 +189,8 @@ fun SettingsDialog(
                             )
                             IconButton(
                                 onClick = {
-                                    scope.launch(Dispatchers.IO) {
-                                        DB.prefsDao.removeIgnoredFolder(path = it)
+                                    database.launchQuery(scope) {
+                                        removeIgnoredFolder(path = it)
                                     }
                                 }
                             ) {
