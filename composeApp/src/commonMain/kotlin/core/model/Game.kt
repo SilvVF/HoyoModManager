@@ -1,12 +1,11 @@
 package core.model
 
-import androidx.compose.material.Icon
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material.icons.outlined.Star
+import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
-import core.db.DB
 
 enum class Game(val data: Byte) {
     Genshin(0x01), 

@@ -1,6 +1,5 @@
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
 import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
-import org.jetbrains.kotlin.gradle.tasks.KotlinCompilationTask
 
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
@@ -24,7 +23,11 @@ kotlin {
         commonMain.dependencies {
             implementation(compose.runtime)
             implementation(compose.foundation)
-            implementation(compose.material)
+            implementation(compose.material3)
+            implementation(compose.materialIconsExtended)
+            implementation(compose.animation)
+            implementation(compose.animationGraphics)
+            implementation(compose.uiTooling)
             implementation(compose.ui)
             implementation(compose.components.resources)
             implementation(compose.components.uiToolingPreview)
@@ -36,9 +39,7 @@ kotlin {
 
 
             implementation("com.squareup.okio:okio:3.9.0")
-
             implementation("io.github.vinceglb:filekit-core:0.7.0")
-            implementation("io.github.vinceglb:filekit-compose:0.7.0")
 
             api("io.github.qdsfdhvh:image-loader:1.8.2")
             // optional - Compose Multiplatform Resources Decoder
@@ -75,6 +76,7 @@ kotlin {
             "-opt-in=kotlinx.coroutines.FlowPreview",
             "-opt-in=kotlinx.coroutines.DelicateCoroutinesApi",
             "-opt-in=kotlinx.coroutines.ExperimentalCoroutinesApi",
+            "-opt-in=androidx.compose.material3.ExperimentalMaterial3Api",
             "-Xcontext-receivers",
         )
     )

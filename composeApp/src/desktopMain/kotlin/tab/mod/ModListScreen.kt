@@ -11,20 +11,20 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.ExtendedFloatingActionButton
-import androidx.compose.material.FilterChip
-import androidx.compose.material.Icon
-import androidx.compose.material.IconButton
-import androidx.compose.material.Scaffold
-import androidx.compose.material.SnackbarHost
-import androidx.compose.material.Text
-import androidx.compose.material.TopAppBar
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.Clear
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
@@ -251,24 +251,26 @@ private fun CharacterListTopBar(
                         selected = selected,
                         onClick = { filters.toggle(element.lowercase()) },
                         modifier = Modifier.padding(4.dp).animateItemPlacement(),
-                        selectedIcon = {
+                        leadingIcon = {
                             Icon(Icons.Outlined.Check, null)
+                        },
+                        label = {
+                            Text(element)
                         }
-                    ) {
-                        Text(element)
-                    }
+                    )
                 }
             }
             FilterChip(
                 selected = modAvailableOnly,
                 onClick = toggleEnabledOnly,
                 modifier = Modifier.padding(4.dp),
-                selectedIcon = {
+                leadingIcon = {
                     Icon(Icons.Outlined.Check, null)
+                },
+                label = {
+                    Text("Mods available")
                 }
-            ) {
-                Text("Mods available")
-            }
+            )
             IconButton(onClick = refresh) {
                 Icon(
                     imageVector = Icons.Outlined.Refresh,

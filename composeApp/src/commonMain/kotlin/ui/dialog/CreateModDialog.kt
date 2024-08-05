@@ -13,17 +13,16 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.material.Button
-import androidx.compose.material.Card
-import androidx.compose.material.DropdownMenuItem
-import androidx.compose.material.Icon
-import androidx.compose.material.IconButton
-import androidx.compose.material.MaterialTheme
-import androidx.compose.material.Text
-import androidx.compose.material.TextButton
-import androidx.compose.material.TextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ArrowDropDown
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -40,7 +39,7 @@ import com.seiko.imageloader.rememberImagePainter
 import core.FileUtils
 import core.model.Character
 import core.model.CharacterWithModsAndTags
-import io.github.vinceglb.filekit.compose.rememberDirectoryPickerLauncher
+import core.rememberDirectoryPickerLauncher
 import kotlinx.coroutines.launch
 import ui.widget.ChangeTextPopup
 import java.io.File
@@ -103,7 +102,7 @@ fun CreateModDialog(
                         verticalAlignment = Alignment.CenterVertically) {
                         Text(
                             text = character.name,
-                            style = MaterialTheme.typography.h5,
+                            style = MaterialTheme.typography.titleSmall,
                             modifier = Modifier.clickable(onClick = { expanded = true })
                         )
                         IconButton(
@@ -129,9 +128,10 @@ fun CreateModDialog(
                                                 selectedIndex = index
                                                 expanded = false
                                             },
-                                        ) {
-                                            Text(text = character.name)
-                                        }
+                                            text = {
+                                                Text(text = character.name)
+                                            }
+                                        )
                                     }
                                 }
                             }

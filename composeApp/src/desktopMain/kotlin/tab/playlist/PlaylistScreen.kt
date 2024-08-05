@@ -21,22 +21,22 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.Button
-import androidx.compose.material.Card
-import androidx.compose.material.Divider
-import androidx.compose.material.ExtendedFloatingActionButton
-import androidx.compose.material.Icon
-import androidx.compose.material.IconButton
-import androidx.compose.material.MaterialTheme
-import androidx.compose.material.Scaffold
-import androidx.compose.material.Switch
-import androidx.compose.material.Text
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Create
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Refresh
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -151,7 +151,7 @@ fun PlaylistScreen(
                     Card(Modifier.fillMaxSize(0.9f)) {
                         if (playlists.isEmpty()) {
                             Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text("No playlists saved.", style = MaterialTheme.typography.h3)
+                                Text("No playlists saved.", style = MaterialTheme.typography.titleMedium)
                                 Spacer(Modifier.size(22.dp))
                                 Button(onClick = {}) {
                                     Text("Create playlist")
@@ -172,9 +172,9 @@ fun PlaylistScreen(
                                         }
 
                                         Column(Modifier.weight(1f).padding(12.dp)) {
-                                            Text(playlist.name, style = MaterialTheme.typography.h6)
+                                            Text(playlist.name, style = MaterialTheme.typography.titleSmall)
                                             Spacer(Modifier.width(12.dp))
-                                            Text(modNames, style = MaterialTheme.typography.subtitle2)
+                                            Text(modNames, style = MaterialTheme.typography.labelMedium)
                                         }
                                         IconButton(
                                             onClick = {
@@ -293,7 +293,7 @@ fun PlaylistMods(
         items(mods, { it.mod.id }) { (mod, tags) ->
             val bg by animateColorAsState(
                 targetValue = if (mod.enabled)
-                    MaterialTheme.colors.primary.copy(alpha = 0.2f)
+                    MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
                 else
                     Color.Transparent
             )
@@ -326,7 +326,7 @@ fun PlaylistMods(
                                 .aspectRatio(1f)
                                 .clip(CircleShape)
                                 .background(
-                                    Brush.verticalGradient(listOf(MaterialTheme.colors.surface, gradientColor))
+                                    Brush.verticalGradient(listOf(MaterialTheme.colorScheme.surface, gradientColor))
                                 ),
                             contentScale = ContentScale.FillWidth,
                             contentDescription = null
@@ -353,7 +353,7 @@ fun PlaylistMods(
                     )
                 }
             }
-            Divider(Modifier.fillMaxWidth())
+            HorizontalDivider(Modifier.fillMaxWidth())
         }
     }
 }

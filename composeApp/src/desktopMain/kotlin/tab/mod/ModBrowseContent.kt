@@ -1,7 +1,5 @@
 package tab.mod
 
-import tab.mod.BrowseState.*
-import tab.mod.BrowseState.Success.PageLoadState
 import androidx.compose.foundation.LocalScrollbarStyle
 import androidx.compose.foundation.VerticalScrollbar
 import androidx.compose.foundation.background
@@ -10,23 +8,25 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.rememberScrollbarAdapter
-import androidx.compose.material.CircularProgressIndicator
-import androidx.compose.material.FilterChip
-import androidx.compose.material.IconButton
-import androidx.compose.material.MaterialTheme
-import androidx.compose.material.Scaffold
-import androidx.compose.material.Text
-import androidx.compose.material.TextButton
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -34,160 +34,28 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastForEach
 import com.seiko.imageloader.ui.AutoSizeImage
-import core.api.DataApi
-import core.api.GameBananaApi
 import core.api.GenshinApi
 import fromHex
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.launch
 import net.model.gamebanana.CategoryContentResponse
-import net.model.gamebanana.CategoryListResponseItem
-import kotlin.math.abs
+import tab.mod.state.BrowseState.*
+import tab.mod.state.BrowseState.Success.PageLoadState
+import tab.mod.state.ModBrowseStateHolder
+import java.text.DateFormat
+import java.time.Instant
+import java.util.Date
 
-private sealed class BrowseState(
-    open val gbUrl: String
-) {
-    data class Loading(override val gbUrl: String) : BrowseState(gbUrl)
-
-    data  class Success(
-        override val gbUrl: String,
-        val pageCount: Int,
-        val page: Int,
-        val mods: Map<Int, PageLoadState>,
-        val subCategories: List<CategoryListResponseItem>
-    ): BrowseState(gbUrl) {
-
-        sealed interface PageLoadState {
-            data object Loading: PageLoadState
-            data class Success(val data: List<CategoryContentResponse.ARecord>): PageLoadState
-            data object Failure: PageLoadState
-        }
-    }
-
-    data class Failure(override val gbUrl: String) : BrowseState(gbUrl)
-
-    val success: Success?
-        get() = this as? Success
-}
-
-
-private class ModBrowseStateHolder(
-    private val dataApi: DataApi,
-    private val categoryId: Int,
-    private val scope: CoroutineScope,
-) {
-    private fun MutableStateFlow<BrowseState>.updateSuccess(block: (Success) -> Success) {
-        return this.update { state ->
-            (state as? Success)?.let(block) ?: state
-        }
-    }
-
-    private val _state = MutableStateFlow<BrowseState>(Loading(GB_CAT_URL + categoryId))
-    val state: StateFlow<BrowseState> get() = _state
-
-    init {
-        scope.launch {
-            initialize()
-        }
-    }
-
-    fun retry() {
-        if (_state.value is Failure) {
-            scope.launch { initialize() }
-        }
-    }
-
-    private suspend fun initialize() {
-        val res = try {
-            GameBananaApi.categoryContent(
-                id = categoryId,
-                perPage = PER_PAGE,
-                page = 1
-            )
-        } catch (e: Exception) {
-            print(e.stackTraceToString())
-            _state.update { Failure(it.gbUrl) }
-            return
-        }
-
-        _state.update {
-            Success(
-                page = 1,
-                gbUrl = it.gbUrl,
-                pageCount = res.aMetadata.nRecordCount / res.aMetadata.nPerpage,
-                mods = mapOf(1 to PageLoadState.Success(res.aRecords)),
-                subCategories = GameBananaApi.categories(dataApi.skinCategoryId)
-            )
-        }
-    }
-
-    fun loadPage(page: Int) {
-        scope.launch(Dispatchers.IO) {
-
-            if (_state.value.success?.mods?.get(page) is PageLoadState.Success){
-                _state.updateSuccess { state -> state.copy(page = page) }
-                return@launch
-            }
-
-            _state.updateSuccess { state ->
-                state.copy(
-                    page = page,
-                    mods = state.mods + mapOf(page to PageLoadState.Loading)
-                )
-            }
-
-            val res = runCatching {
-                GameBananaApi.categoryContent(
-                    id = dataApi.skinCategoryId,
-                    perPage = PER_PAGE,
-                    page = page
-                )
-            }
-
-            _state.updateSuccess { state ->
-                state.copy(
-                    mods = state.mods.toMutableMap().apply {
-                        /*
-                            Cache 8 responses in memory duplicate requests are cached by ktor
-                            in File storage drop half when hitting limit.
-                         */
-                        if (this.keys.size > 8) {
-                            this.keys.toList()
-                                .sortedByDescending { abs(it - page) }
-                                .take(4)
-                                .forEach { key ->
-                                    this.remove(key)
-                                }
-                        }
-
-                        this[page] = res.fold(
-                            onSuccess = { PageLoadState.Success(it.aRecords) },
-                            onFailure = { PageLoadState.Failure }
-                        )
-                    }.toMap(),
-                    page = page,
-                )
-            }
-        }
-    }
-
-    companion object {
-        private const val GB_CAT_URL = "https://gamebanana.com/mods/cats/"
-        private const val PER_PAGE = 30
-    }
-}
 
 @Composable
 fun ModBrowseContent(
@@ -221,105 +89,166 @@ fun ModBrowseContent(
             is Success -> {
                 PageContent(
                     state = state,
-                    onModClick = onModClick,
                     loadPage = { stateHolder.loadPage(it) },
-                    paddingValues = paddingValues,
-                    modifier = Modifier.fillMaxSize()
+                    onModClick = onModClick,
+                    paddingValues = paddingValues
                 )
             }
         }
     }
 }
 
+@Composable
+fun rememberAnnotatedCSS(name: String, css: String?): AnnotatedString {
+    return remember(name, css) {
+        val split =  css?.split(";")
+        val colorHex =split
+            ?.firstOrNull { it.startsWith("color:") }
+            ?.removePrefix("color:")
+
+        val shadows = split
+            ?.firstOrNull { it.startsWith("text-shadow:") }
+            ?.split(":", ",")
+            ?.drop(1)
+            ?.map {
+                val txtShadow = it.split(" ")
+                val offsets = txtShadow
+                    .mapNotNull { it.removeSuffix("px").toFloatOrNull() }
+
+                val color = txtShadow.firstNotNullOfOrNull {
+                    it.takeIf { it.startsWith("#") }?.let {
+                        runCatching { Color.fromHex(it) }.getOrNull()
+                    }
+                }
+                color?.let {
+                    Shadow(
+                        color = color,
+                        offset = Offset(
+                            offsets.take(2).firstOrNull() ?: 0f,
+                            offsets.take(2).lastOrNull() ?: 0f
+                        ),
+                        blurRadius = offsets.getOrNull(2) ?: 0f
+                    )
+                }
+            }
+
+
+        buildAnnotatedString {
+            shadows?.filterNotNull()?.fastForEach { shadow ->
+                addStyle(
+                    style = SpanStyle(
+                        color = Color.Transparent,
+                        shadow = shadow,
+                    ),
+                    start = 0,
+                    end = name.length
+                )
+            }
+            withStyle(
+                SpanStyle(
+                    color = colorHex?.let { Color.fromHex(colorHex) } ?: Color.Unspecified,
+                ),
+            ) {
+                append(name)
+            }
+        }
+    }
+}
 
 @Composable
 private fun PageContent(
     state: Success,
     loadPage: (page: Int) -> Unit,
     onModClick: (id: Int) -> Unit,
-    paddingValues: PaddingValues,
-    modifier: Modifier = Modifier
+    paddingValues: PaddingValues
 ) {
-    Column(modifier) {
-        when (val data = state.mods[state.page] ?: return@Column) {
-            PageLoadState.Failure -> Box(Modifier.fillMaxSize()) {
-                TextButton(
-                    onClick = { loadPage(state.page) },
-                    modifier = Modifier.align(Alignment.Center)
+    when (val data = state.mods[state.page] ?: return) {
+        PageLoadState.Failure -> Box(Modifier.fillMaxSize()) {
+            TextButton(
+                onClick = { loadPage(state.page) },
+                modifier = Modifier.align(Alignment.Center)
+            ) {
+                Text("Retry")
+            }
+        }
+        PageLoadState.Loading ->   Box(Modifier.fillMaxSize()) {
+            CircularProgressIndicator(Modifier.align(Alignment.Center))
+        }
+        is PageLoadState.Success -> {
+            val gridState = rememberLazyGridState()
+            Box(Modifier.fillMaxSize()) {
+                LazyVerticalGrid(
+                    state = gridState,
+                    contentPadding = paddingValues,
+                    columns = GridCells.Adaptive(280.dp),
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .fillMaxWidth(0.8f)
+                        .align(Alignment.Center)
                 ) {
-                    Text("Retry")
-                }
-            }
-            PageLoadState.Loading ->   Box(Modifier.fillMaxSize()) {
-                CircularProgressIndicator(Modifier.align(Alignment.Center))
-            }
-            is PageLoadState.Success -> {
-                val gridState = rememberLazyGridState()
-                Box(Modifier.weight(1f).fillMaxWidth()) {
-                    LazyVerticalGrid(
-                        state = gridState,
-                        contentPadding = paddingValues,
-                        columns = GridCells.Adaptive(280.dp),
-                        modifier = Modifier.fillMaxSize().padding(horizontal = 22.dp)
-                    ) {
-                        items(data.data) { submission ->
-                            Column(Modifier
-                                .fillMaxSize()
-                                .padding(8.dp)
-                                .clickable {
-                                    println(submission.idRow?.toString() + "Clicked")
-                                    submission.idRow?.let { onModClick(it) }
+                    items(data.data) { submission ->
+                        Column(Modifier
+                            .fillMaxSize()
+                            .padding(8.dp)
+                            .clickable {
+                                println(submission.idRow.toString() + "Clicked")
+                                onModClick(submission.idRow)
+                            }
+                        ) {
+                            ModImagePreview(
+                                submission.aPreviewMedia,
+                                Modifier.fillMaxWidth()
+                            )
+
+                            val updatedAt = remember {
+                                submission.tsDateUpdated?.let {
+                                    DateFormat.getDateInstance(DateFormat.SHORT).format(
+                                        Date.from(Instant.ofEpochSecond(it.toLong()))
+                                    )
                                 }
-                            ) {
-                                ModImagePreview(
-                                    submission.aPreviewMedia,
-                                    Modifier.fillMaxWidth()
-                                )
-                                val name = remember{
+                                    .orEmpty()
+                            }
 
-                                    val css = submission.aSubmitter?.sSubjectShaperCssCode
-                                    val colorHex = css
-                                        ?.split(";")
-                                        ?.firstOrNull { it.startsWith("color:") }
-                                        ?.removePrefix("color:")
-
-                                    buildAnnotatedString {
-                                        withStyle(
-                                            SpanStyle(
-                                                color = colorHex?.let {
-                                                    Color.fromHex(colorHex)
-                                                } ?: Color.Unspecified
-                                            )
-                                        ) {
-                                            append(submission.sName.orEmpty())
-                                        }
-                                    }
+                            val uploadedAt = remember {
+                                submission.tsDateAdded?.let {
+                                    DateFormat.getDateInstance(DateFormat.SHORT).format(
+                                        Date.from(Instant.ofEpochSecond(it.toLong()))
+                                    )
                                 }
+                                    .orEmpty()
+                            }
 
-                                Text(name)
-                                Text(submission.sProfileUrl.orEmpty())
-                                Text(submission.sSingularTitle.orEmpty())
+                            val annotatedString = rememberAnnotatedCSS(
+                                submission.sName.orEmpty(),
+                                submission.aSubmitter?.sSubjectShaperCssCode
+                            )
+
+                            Text(annotatedString)
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(uploadedAt)
+                                Spacer(Modifier.width(8.dp))
+                                Text(updatedAt)
                             }
                         }
                     }
-                    VerticalScrollbar(
-                        modifier = Modifier.align(Alignment.CenterEnd),
-                        adapter = rememberScrollbarAdapter(gridState),
-                        style = LocalScrollbarStyle.current.copy(
-                            thickness = 8.dp,
-                            hoverColor = MaterialTheme.colors.primary,
-                            unhoverColor = MaterialTheme.colors.primary
-                        )
-                    )
                 }
+                VerticalScrollbar(
+                    modifier = Modifier.align(Alignment.CenterEnd),
+                    adapter = rememberScrollbarAdapter(gridState),
+                    style = LocalScrollbarStyle.current.copy(
+                        thickness = 8.dp,
+                        hoverColor = MaterialTheme.colorScheme.primary,
+                        unhoverColor = MaterialTheme.colorScheme.primary
+                    )
+                )
+                PageNumbersList(
+                    state.page,
+                    state.pageCount,
+                    loadPage,
+                    Modifier.align(Alignment.BottomCenter)
+                )
             }
         }
-        PageNumbersList(
-            state.page,
-            state.pageCount,
-            loadPage,
-            Modifier.align(Alignment.CenterHorizontally)
-        )
     }
 }
 
@@ -343,8 +272,9 @@ private fun ModImagePreview(
         if (imgUrl != null) {
             AutoSizeImage(
                 url = imgUrl,
+                alignment = Alignment.TopCenter,
                 contentDescription = null,
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier.fillMaxSize().clip(MaterialTheme.shapes.medium),
                 contentScale = ContentScale.Crop
             )
         } else {
@@ -376,18 +306,13 @@ private fun PageNumbersList(
                 selected = page == num,
                 onClick = { goToPage(num) },
                 modifier = Modifier.wrapContentSize().padding(2.dp),
-            ) {
-                Text(
-                    num.toString(),
-                    Modifier.align(Alignment.CenterVertically)
-                )
-            }
-        }
-
-        IconButton(
-            onClick = {}
-        ) {
-
+                label =  {
+                    Text(
+                        num.toString(),
+                        Modifier.align(Alignment.CenterVertically)
+                    )
+                }
+            )
         }
     }
 }

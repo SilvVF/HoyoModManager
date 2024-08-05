@@ -1,22 +1,26 @@
 package tab.mod
 
-import CharacterSync
-import OS
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.LocalScrollbarStyle
 import androidx.compose.foundation.VerticalScrollbar
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PageSize
@@ -24,244 +28,47 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.rememberScrollbarAdapter
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.CircularProgressIndicator
-import androidx.compose.material.Divider
-import androidx.compose.material.FilterChip
-import androidx.compose.material.Icon
-import androidx.compose.material.IconButton
-import androidx.compose.material.MaterialTheme
-import androidx.compose.material.Scaffold
-import androidx.compose.material.Text
-import androidx.compose.material.TextButton
-import androidx.compose.material.TopAppBar
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowLeft
-import androidx.compose.material.icons.outlined.Create
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Divider
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalContentColor
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.input.pointer.onPointerEvent
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastForEach
 import androidx.compose.ui.util.fastForEachIndexed
 import com.seiko.imageloader.ui.AutoSizeImage
-import core.FileUtils
-import core.api.DataApi
-import core.api.GameBananaApi
-import core.db.DB
 import core.model.Character
-import core.model.Mod
-import io.ktor.client.plugins.onDownload
-import io.ktor.client.request.get
-import io.ktor.client.statement.bodyAsChannel
-import io.ktor.utils.io.jvm.javaio.toInputStream
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.filterNotNull
-import kotlinx.coroutines.flow.launchIn
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.onEach
-import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import net.NetHelper
 import net.model.gamebanana.ModPageResponse
+import tab.mod.state.ModDownloadStateHolder
+import tab.mod.state.ModFile
+import tab.mod.state.ModInfoState
+import tab.mod.state.ModStateHolder
 import ui.LocalDataApi
-import java.io.File
-import java.nio.file.Paths
-import kotlin.io.path.exists
-import kotlin.io.path.pathString
 
-
-private data class ModState(
-    val info: ModInfoState = ModInfoState.Loading,
-    val character: Character? = null,
-    val files: List<ModFile> = emptyList(),
-)
-
-private sealed interface ModDownloadState {
-    data object Downloading: ModDownloadState
-    data object Idle: ModDownloadState
-}
-
-private data class ModFile(
-    val file: ModPageResponse.AFile,
-    val downloaded: Boolean
-)
-
-private sealed interface ModInfoState {
-    data object Loading: ModInfoState
-    data class Success(val data: ModPageResponse): ModInfoState
-    data object Failure: ModInfoState
-
-    val success: Success?
-        get() = this as? Success
-}
-
-private data class Progress(
-    val total: Long,
-    val complete: Long
-) {
-    val frac = if(total == 0L) 0f else  complete / total.toFloat()
-}
-
-private class ModDownloadStateHolder(
-    val modFile: ModFile,
-    val dataApi: DataApi,
-    val character: Character? = null,
-    val info: ModInfoState.Success,
-    val scope: CoroutineScope,
-) {
-    /* These happen at the same time bc the file is read through and input stream when extracting*/
-    val downloadProgress = MutableStateFlow(Progress(0L, 0L))
-    val unzipProgress = MutableStateFlow(Progress(0L, 0L))
-
-    val errors = mutableStateListOf<String>()
-
-    var state by mutableStateOf<ModDownloadState>(ModDownloadState.Idle)
-
-    fun download() = scope.launch {
-        state = ModDownloadState.Downloading
-
-       runCatching {
-           downloadAndUpdateDB()
-        }
-           .onFailure {
-               println(it.stackTraceToString())
-               errors.add(it.localizedMessage)
-           }
-
-        state = ModDownloadState.Idle
-
-        downloadProgress.emit(Progress(0L, 0L))
-        unzipProgress.emit(Progress(0L, 0L))
-    }
-
-    private suspend fun downloadAndUpdateDB() = withContext(Dispatchers.IO) {
-        val (file, downloaded) = modFile
-
-        if (downloaded || character == null) return@withContext
-
-        val downloadUrl = file.sDownloadUrl!!.replace("\\", "")
-        val ext =  file.sFile!!.takeLastWhile { it != '.' }.lowercase()
-
-        val res = NetHelper.client.get(downloadUrl) {
-            onDownload { sent, length ->
-                downloadProgress.emit(Progress(length ?: 0, sent))
-            }
-        }
-
-        val inputStream = res.bodyAsChannel().toInputStream()
-
-        val outputPath = Paths.get(
-            CharacterSync.rootDir.path,
-            dataApi.game.name,
-            character.name,
-            file.sFile.removeSuffix(".$ext")
-        )
-
-        val path = if (outputPath.exists()) {
-            FileUtils.getNewName(outputPath.pathString)
-        } else  outputPath.pathString
-
-        val dir = File(path).also { it.mkdirs() }
-
-        FileUtils.extractUsing7z(inputStream, dir) { total, complete ->
-            unzipProgress.value = Progress(total, complete)
-        }
-
-        DB.modDao.insertOrUpdate(
-            buildMod(dir, dataApi, character, info.data, file)
-        )
-    }
-
-    private fun buildMod(modDir: File, dataApi: DataApi, c: Character, data: ModPageResponse, file: ModPageResponse.AFile) =
-        Mod(
-            fileName = modDir.name,
-            game = dataApi.game.data,
-            character = c.name,
-            characterId = c.id,
-            enabled = false,
-            modLink = data.sProfileUrl,
-            gbId = data.idRow,
-            gbDownloadLink = file.sDownloadUrl,
-            gbFileName = file.sFile,
-            previewImages = data.aPreviewMedia.aImages.map {
-                val base =  it.sBaseUrl.replace("\\", "")
-                base + '/' + (it.sFile).replace("\\", "")
-            }
-        )
-}
-
-private class ModStateHolder(
-    private val rowId: Int,
-    private val dataApi: DataApi,
-    private val scope: CoroutineScope
-) {
-    private val _state = MutableStateFlow(ModState())
-    val state: StateFlow<ModState> get() = _state.asStateFlow()
-
-    init {
-        state.map { it.info.success?.data?.aCategory?.sName }
-            .filterNotNull()
-            .distinctUntilChanged()
-            .onEach { name ->
-                val match = DB.characterDao.selectClosesMatch(dataApi.game, name)
-                _state.update { it.copy(character = match) }
-            }
-            .launchIn(scope)
-
-        state.map { it.info.success?.data?.aFiles }.filterNotNull().distinctUntilChanged()
-            .combine(
-                DB.modDao.observeModsByGbRowId(rowId)
-            ) { files, mods ->
-
-                val links = mods.mapNotNull { it.gbDownloadLink }
-
-                _state.update { state ->
-                    state.copy(
-                        files = files.map {
-                            ModFile(it, links.contains(it.sDownloadUrl))
-                        }
-                    )
-                }
-            }
-            .launchIn(scope)
-
-        scope.launch { initialize() }
-    }
-
-    suspend fun initialize() {
-        _state.value = runCatching {
-            GameBananaApi.modContent(rowId)
-        }
-            .fold(
-                onSuccess = { ModState(ModInfoState.Success(it)) },
-                onFailure = { ModState(ModInfoState.Failure) }
-            )
-    }
-
-    fun refresh() {
-        scope.launch {
-            _state.value = ModState(ModInfoState.Loading)
-            initialize()
-        }
-    }
-}
 
 @Composable
 fun ModViewContent(
@@ -269,12 +76,9 @@ fun ModViewContent(
     onBackPressed: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-
     val dataApi = LocalDataApi.current
     val scope = rememberCoroutineScope()
     val stateHolder = remember { ModStateHolder(id, dataApi, scope) }
-    val retryTrigger = remember { Channel<Unit>() }
-
     val state by stateHolder.state.collectAsState()
 
     Scaffold(
@@ -302,7 +106,7 @@ fun ModViewContent(
             when (val info = state.info) {
                 ModInfoState.Failure ->
                     TextButton(
-                        onClick = { retryTrigger.trySend(Unit) }
+                        onClick = { stateHolder.refresh() }
                     ) {
                         Text("Retry")
                     }
@@ -337,79 +141,118 @@ private fun BoxScope.ModViewSuccessContent(
             info.data.aPreviewMedia,
             Modifier.fillMaxWidth()
         )
-        Column {
-            files.fastForEach { modFile ->
-
-                val (file, downloaded) = modFile
-                val downloadState = remember(modFile) { ModDownloadStateHolder(modFile, dataApi, character, info, scope) }
-
+        Column(Modifier.fillMaxWidth(0.95f).align(Alignment.CenterHorizontally)) {
+            Row {
                 Row(
-                    Modifier.width(IntrinsicSize.Max)
+                    modifier = Modifier.fillMaxWidth().padding(12.dp),
+                    horizontalArrangement = Arrangement.Start,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("${file.sFile}@${file.sDownloadUrl}")
-                    when (downloadState.state) {
-                        ModDownloadState.Idle -> {
-                            if (!downloaded) {
-                                IconButton(
-                                    onClick = downloadState::download
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Outlined.Create,
-                                        contentDescription = null
-                                    )
-                                }
-                            }
-                        }
-                        ModDownloadState.Downloading  -> {
-
-                            val downloadProgress by downloadState.unzipProgress.collectAsState()
-                            val unzipProgress by downloadState.unzipProgress.collectAsState()
-
-                            val totalProgress by remember(downloadProgress, unzipProgress) {
-                                derivedStateOf {
-                                    (downloadProgress.frac + unzipProgress.frac / 2f).coerceIn(0f..1f)
-                                }
-                            }
-
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                CircularProgressIndicator(
-                                    progress = totalProgress
-                                )
-                            }
-
-                            val unzipString = remember(unzipProgress) {
-                                val complete = OS.humanReadableByteCountBin(unzipProgress.complete)
-                                val total = OS.humanReadableByteCountBin(unzipProgress.total)
-
-                                "Unzipping:  $complete / $total"
-                            }
-
-                            val downloadString = remember(downloadProgress) {
-                                val complete = OS.humanReadableByteCountBin(downloadProgress.complete)
-                                val total = OS.humanReadableByteCountBin(downloadProgress.total)
-
-                                "Downloading:  $complete / $total"
-                            }
-
-                            Column {
-                                Text(downloadString)
-                                Text(unzipString)
-                            }
-                        }
+                    Box(Modifier.fillMaxWidth(0.6f), Alignment.CenterStart) {
+                        HoverText(
+                            "name",
+                            onClick = {},
+                            style = MaterialTheme.typography.labelMedium
+                        )
+                    }
+                    Box(Modifier.fillMaxWidth(0.2f), Alignment.CenterStart) {
+                        HoverText(
+                            "upload date",
+                            onClick = {},
+                            style = MaterialTheme.typography.labelMedium
+                        )
+                    }
+                    Box(Modifier.weight(1f), Alignment.CenterEnd) {
+                        HoverText(
+                            "actions",
+                            onClick = {},
+                            style = MaterialTheme.typography.labelMedium
+                        )
                     }
                 }
             }
-            Divider()
+            Spacer(Modifier.height(2.dp))
+            HorizontalDivider()
+            Spacer(Modifier.height(2.dp))
+            files.fastForEach { modFile ->
+
+                val (file, downloaded) = modFile
+                val stateHolder = remember(modFile) { ModDownloadStateHolder(modFile, dataApi, character, info, scope) }
+
+                val downloadProgress by stateHolder.downloadProgress.collectAsState()
+                val unzipProgress by stateHolder.unzipProgress.collectAsState()
+
+                ModFileListItem(
+                    downloadState = stateHolder.state,
+                    fileName = file.sFile.orEmpty(),
+                    fileTags = remember(file) {
+                        with (file) {
+                            buildList {
+                                listOfNotNull(
+                                    sClamAvResult,
+                                    sAvastAvResult,
+                                    sAnalysisResultCode
+                                )
+                                    .forEach { add(it) }
+                            }
+                        }
+                    },
+                    description = file.sDescription.orEmpty(),
+                    downloaded = downloaded,
+                    downloadProgress = downloadProgress,
+                    unzipProgress = unzipProgress,
+                    download = { stateHolder.download() },
+                    uploadEpochSecond = modFile.file.tsDateAdded,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
         }
+        val density = LocalDensity.current
+        Spacer(
+            Modifier.height(
+                with(density) {
+                    WindowInsets.systemBars.getBottom(density).toDp()
+                }
+            )
+        )
     }
     VerticalScrollbar(
         adapter = rememberScrollbarAdapter(scrollState),
         modifier = Modifier.align(Alignment.CenterEnd),
         style = LocalScrollbarStyle.current.copy(
             thickness = 8.dp,
-            hoverColor = MaterialTheme.colors.primary,
-            unhoverColor = MaterialTheme.colors.primary
+            hoverColor = MaterialTheme.colorScheme.primary,
+            unhoverColor = MaterialTheme.colorScheme.primary
         )
+    )
+}
+
+@Composable
+fun HoverText(
+    text: String,
+    onClick: () -> Unit,
+    style: TextStyle,
+    modifier: Modifier = Modifier
+) {
+    var active by remember { mutableStateOf(false) }
+    val color = LocalContentColor.current
+    val colorAnim by  animateColorAsState(
+        if (active) color else color.copy(alpha = 0.6f)
+    )
+
+    Text(
+        text = text,
+        color = colorAnim,
+        modifier = modifier
+            .onPointerEvent(PointerEventType.Enter) { active = true }
+            .onPointerEvent(PointerEventType.Exit) { active = false }
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                null
+            ) {
+                onClick()
+            },
+        style = style
     )
 }
 
@@ -467,7 +310,7 @@ private fun ImagePreview(
                         .aspectRatio(16f / 10f)
                         .then(
                             if (state.currentPage == i) {
-                                Modifier.border(2.dp, MaterialTheme.colors.primary)
+                                Modifier.border(2.dp, MaterialTheme.colorScheme.primary)
                             } else Modifier
                         )
                         .clickable {
@@ -487,12 +330,12 @@ fun ContentRatings(
 ) {
     FlowRow(modifier) {
         ratings.values.forEach { rating ->
-            FilterChip(
-                selected = false,
+            AssistChip(
                 onClick = {},
-            ) {
-                Text(rating)
-            }
+                label = {
+                    Text(rating)
+                }
+            )
         }
     }
 }

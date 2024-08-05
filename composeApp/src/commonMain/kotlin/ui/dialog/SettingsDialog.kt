@@ -3,7 +3,6 @@ package ui.dialog
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -13,15 +12,16 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.Card
-import androidx.compose.material.Divider
-import androidx.compose.material.Icon
-import androidx.compose.material.IconButton
-import androidx.compose.material.MaterialTheme
-import androidx.compose.material.Text
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material3.Card
+import androidx.compose.material3.Divider
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -39,7 +39,7 @@ import androidx.compose.ui.window.Dialog
 import core.db.DB
 import core.model.MetaData
 import core.model.Game
-import io.github.vinceglb.filekit.compose.rememberDirectoryPickerLauncher
+import core.rememberDirectoryPickerLauncher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
@@ -136,13 +136,13 @@ fun SettingsDialog(
             Column(Modifier.padding(22.dp).verticalScroll(rememberScrollState())) {
                 Text(
                     "Settings",
-                    style = MaterialTheme.typography.h3,
+                    style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold
                 )
                 Spacer(Modifier.height(22.dp))
                 Text(
                     "Export directories",
-                    style = MaterialTheme.typography.h5,
+                    style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.SemiBold
                 )
                 Spacer(Modifier.height(12.dp))
@@ -152,7 +152,7 @@ fun SettingsDialog(
                         horizontalArrangement = Arrangement.Start,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("${game.name}: ${file?.path ?: "not set"}", style = MaterialTheme.typography.h6)
+                        Text("${game.name}: ${file?.path ?: "not set"}", style = MaterialTheme.typography.titleSmall)
                         IconButton(
                             onClick = { launchPicker(game) }
                         ) {
@@ -160,7 +160,7 @@ fun SettingsDialog(
                         }
                     }
                     Spacer(Modifier.height(12.dp))
-                    Divider(Modifier.fillMaxWidth())
+                    HorizontalDivider(Modifier.fillMaxWidth())
                     Spacer(Modifier.height(12.dp))
                 }
                 Row(
@@ -170,7 +170,7 @@ fun SettingsDialog(
                 ) {
                     Text(
                         "Ignore directories on generation",
-                        style = MaterialTheme.typography.h5,
+                        style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold
                     )
                     IconButton(
@@ -185,7 +185,7 @@ fun SettingsDialog(
                             Text(
                                 it,
                                 modifier = Modifier.weight(1f),
-                                style = MaterialTheme.typography.h6
+                                style = MaterialTheme.typography.titleSmall
                             )
                             IconButton(
                                 onClick = {

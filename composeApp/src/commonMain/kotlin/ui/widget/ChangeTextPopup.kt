@@ -9,15 +9,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.Button
-import androidx.compose.material.ButtonDefaults
-import androidx.compose.material.Card
-import androidx.compose.material.MaterialTheme
-import androidx.compose.material.OutlinedTextField
-import androidx.compose.material.Surface
-import androidx.compose.material.Text
-import androidx.compose.material.TextButton
-import androidx.compose.material.TextField
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -41,7 +40,7 @@ object ChangeTextPopupDefaults {
         Text(
             modifier = modifier,
             text = text,
-            style = MaterialTheme.typography.subtitle2
+            style = MaterialTheme.typography.labelMedium
         )
     }
 }
@@ -53,11 +52,13 @@ fun ChangeTextPopup(
     message: @Composable ChangeTextPopupDefaults.() -> Unit = {},
     onConfirm: () -> Unit,
     onCancel: () -> Unit,
-    surfaceColor: Color = MaterialTheme.colors.surface,
+    surfaceColor: Color = MaterialTheme.colorScheme.surface,
     modifier: Modifier = Modifier
 ) {
     Card(
-        backgroundColor = surfaceColor,
+        colors = CardDefaults.cardColors(
+            containerColor = surfaceColor
+        ),
         modifier = modifier
             .wrapContentSize()
             .clip(MaterialTheme.shapes.medium)
@@ -81,7 +82,7 @@ fun ChangeTextPopup(
                 TextButton(
                     onClick = onCancel,
                     colors = ButtonDefaults.textButtonColors(
-                        contentColor = MaterialTheme.colors.error
+                        contentColor = MaterialTheme.colorScheme.error
                     )
                 ) {
                     Text("Cancel")

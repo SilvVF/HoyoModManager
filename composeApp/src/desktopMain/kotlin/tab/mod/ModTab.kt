@@ -27,7 +27,7 @@ data object ModTab: Tab, ComposeReselectTab by ReselectTab.compose()  {
 
     @Composable
     override fun Icon() =
-        androidx.compose.material.Icon(
+        androidx.compose.material3.Icon(
             imageVector = Icons.Outlined.FavoriteBorder,
             contentDescription = null
         )

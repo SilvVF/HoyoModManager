@@ -16,9 +16,11 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -29,17 +31,6 @@ import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollbarAdapter
-import androidx.compose.material.Button
-import androidx.compose.material.Card
-import androidx.compose.material.Chip
-import androidx.compose.material.Divider
-import androidx.compose.material.DropdownMenu
-import androidx.compose.material.Icon
-import androidx.compose.material.IconButton
-import androidx.compose.material.MaterialTheme
-import androidx.compose.material.Switch
-import androidx.compose.material.Text
-import androidx.compose.material.TextButton
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
@@ -47,6 +38,17 @@ import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Menu
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Switch
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -59,6 +61,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalViewConfiguration
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastForEach
@@ -95,7 +98,7 @@ fun CharacterToggleList(
         LazyVerticalGrid(
             state = lazyGridState,
             modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp),
-            columns = GridCells.Fixed(3),
+            columns = GridCells.Adaptive(500.dp),
             contentPadding = paddingValues
         ) {
             items(characters, key = { it.character.id  }) { (character, mods) ->
@@ -103,33 +106,30 @@ fun CharacterToggleList(
                 val onBackground = remember { Color(0xff030712) }
                 val typeColor = remember { Color(0xff111827) }
 
-                Card(Modifier.padding(8.dp)) {
-                    BoxWithConstraints(Modifier.background(Brush.verticalGradient(listOf(onBackground, typeColor)))) {
-                        if (maxWidth < 400.dp) {
-                            Column(Modifier.fillMaxWidth()) {
-                                CharacterImage(
-                                    character = character,
-                                    onIconClick = { onCharacterIconClick(character) },
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .aspectRatio(3f / 4f),
-                                )
-                                FileToggles(
-                                    modifier = Modifier.fillMaxWidth().heightIn(max = 300.dp),
-                                    mods = mods,
-                                    scope = scope,
-                                )
-                            }
-                        } else {
+                Card(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(8.dp)
+                ) {
+                    BoxWithConstraints(
+                        Modifier
+                            .fillMaxWidth()
+                            .wrapContentHeight()
+                            .background(
+                                Brush.verticalGradient(listOf(onBackground, typeColor))
+                            )
+                    ) {
+                        if (maxWidth > 450.dp) {
                             Row(
-                                modifier = Modifier.fillMaxWidth().heightIn(max = 300.dp),
+                                modifier = Modifier.fillMaxWidth().aspectRatio(16f / 10f),
                                 horizontalArrangement = Arrangement.Start,
-                                verticalAlignment = Alignment.Bottom
+                                verticalAlignment = Alignment.Top
                             ) {
                                 CharacterImage(
                                     character = character,
                                     onIconClick = { onCharacterIconClick(character) },
                                     modifier = Modifier
+                                        .fillMaxWidth(0.3f)
                                         .aspectRatio(3f / 4f),
                                 )
                                 FileToggles(
@@ -137,6 +137,35 @@ fun CharacterToggleList(
                                     modifier = Modifier.fillMaxSize(),
                                     scope = scope,
                                 )
+                            }
+                        } else {
+                            Column(Modifier.wrapContentHeight().fillMaxWidth()) {
+                                CharacterImage(
+                                    character = character,
+                                    onIconClick = { onCharacterIconClick(character) },
+                                    modifier = Modifier
+                                        .align(Alignment.CenterHorizontally)
+                                        .height(200.dp)
+                                        .aspectRatio(3f / 4f),
+                                )
+
+                                if (mods.isNotEmpty()) {
+                                    FileToggles(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(450.dp),
+                                        mods = mods,
+                                        scope = scope,
+                                    )
+                                } else {
+                                    Text(
+                                        "No Mods",
+                                        modifier = Modifier
+                                            .padding(12.dp)
+                                            .height(120.dp)
+                                            .align(Alignment.CenterHorizontally)
+                                    )
+                                }
                             }
                         }
                     }
@@ -148,8 +177,8 @@ fun CharacterToggleList(
             adapter = rememberScrollbarAdapter(scrollState = lazyGridState),
             style = LocalScrollbarStyle.current.copy(
                 thickness = 8.dp,
-                hoverColor = MaterialTheme.colors.primary,
-                unhoverColor = MaterialTheme.colors.primary
+                hoverColor = MaterialTheme.colorScheme.primary,
+                unhoverColor = MaterialTheme.colorScheme.primary
             )
         )
     }
@@ -207,7 +236,7 @@ fun FileToggles(
                             )
                         }
                     }
-                    Divider(Modifier.fillMaxWidth())
+                    HorizontalDivider(Modifier.fillMaxWidth())
                 }
             }
         }
@@ -216,8 +245,8 @@ fun FileToggles(
             adapter = rememberScrollbarAdapter(scrollState = lazyColState),
             style = LocalScrollbarStyle.current.copy(
                 thickness = 8.dp,
-                hoverColor = MaterialTheme.colors.primary,
-                unhoverColor = MaterialTheme.colors.primary
+                hoverColor = MaterialTheme.colorScheme.primary,
+                unhoverColor = MaterialTheme.colorScheme.primary
             )
         )
     }
@@ -443,12 +472,13 @@ fun TagsList(
                 tags,
                 key = { it.name }
             ) { tag ->
-                Chip(
+                AssistChip(
                     onClick = {},
-                    modifier = Modifier.padding(horizontal = 2.dp)
-                ) {
-                    Text(tag.name)
-                }
+                    modifier = Modifier.padding(horizontal = 2.dp),
+                    label = {
+                        Text(tag.name)
+                    }
+                )
             }
         }
         val iconButton =

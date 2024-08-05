@@ -1,15 +1,16 @@
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.CircularProgressIndicator
-import androidx.compose.material.ExtendedFloatingActionButton
-import androidx.compose.material.Icon
-import androidx.compose.material.MaterialTheme
-import androidx.compose.material.NavigationRail
-import androidx.compose.material.NavigationRailItem
-import androidx.compose.material.Text
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Refresh
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationRail
+import androidx.compose.material3.NavigationRailItem
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -104,7 +105,13 @@ fun App() {
                         )
                     }
                 }
-                lib.voyager.FadeTransition(navigator)
+                Scaffold(
+                    topBar = {
+
+                    }
+                ) {
+                    lib.voyager.FadeTransition(navigator)
+                }
             }
         }
     }
@@ -203,7 +210,7 @@ fun GenerateButton(
                     )
                 }
             },
-            backgroundColor = MaterialTheme.colors.secondary.copy(
+            containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(
                 alpha = if(loading) 0.5f else 1f
             ),
             text = {

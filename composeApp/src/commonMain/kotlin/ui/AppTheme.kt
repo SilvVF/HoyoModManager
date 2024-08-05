@@ -2,9 +2,9 @@ package ui
 
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.offset
-import androidx.compose.material.MaterialTheme
-import androidx.compose.material.Surface
-import androidx.compose.material.darkColors
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -19,8 +19,7 @@ import kotlin.math.roundToInt
 @Composable
 fun AppTheme(content: @Composable () -> Unit) {
     MaterialTheme(
-        colors = darkColors(),
-        typography = MaterialTheme.typography,
+        colorScheme = darkColorScheme(),
     ) {
         Surface {
             content()
