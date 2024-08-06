@@ -227,18 +227,14 @@ private fun PageContent(
 
                             val updatedAt = remember {
                                 submission.tsDateUpdated?.let {
-                                    DateFormat.getDateInstance(DateFormat.SHORT).format(
-                                        Date.from(Instant.ofEpochSecond(it.toLong()))
-                                    )
+                                    OS.getRelativeTimeSpanString(it.toLong())
                                 }
                                     .orEmpty()
                             }
 
                             val uploadedAt = remember {
                                 submission.tsDateAdded?.let {
-                                    DateFormat.getDateInstance(DateFormat.SHORT).format(
-                                        Date.from(Instant.ofEpochSecond(it.toLong()))
-                                    )
+                                    OS.getRelativeTimeSpanString(it.toLong())
                                 }
                                     .orEmpty()
                             }

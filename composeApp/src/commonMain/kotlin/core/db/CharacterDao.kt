@@ -28,9 +28,9 @@ interface CharacterDao {
     suspend fun selectById(id: Int, game: Game): Character?
 
     @Query(
-        "SELECT COUNT(DISTINCT name) FROM character WHERE LOWER(name) LIKE '%' || LOWER(:search) || '%'  AND game = :game"
+        "SELECT * FROM character WHERE game = :game AND LOWER(name) LIKE '%' || LOWER(:search) || '%'"
     )
-    suspend fun selectCountCharacterNamesContaining(search: String, game: Game): Long
+    suspend fun selectCharactersNamesContaining(search: String, game: Game): List<Character>
 
     @Query("SELECT * FROM character WHERE LOWER(name) LIKE '%' || LOWER(:name) || '%' AND game = :game LIMIT 1")
     suspend fun selectClosestMatch(game: Game, name: String): Character?
@@ -64,7 +64,6 @@ interface CharacterDao {
     @Query("SELECT * FROM character WHERE game = :game")
     fun observeByGame(game: Game): Flow<List<Character>>
 
-    @Transaction
     @Query("""
         SELECT 
             c.*,

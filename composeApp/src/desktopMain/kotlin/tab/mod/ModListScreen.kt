@@ -57,11 +57,13 @@ import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import toggle
 import ui.CharacterToggleList
 import ui.LocalDataApi
@@ -80,7 +82,6 @@ public inline fun <T> Iterable<T>.filterIf(condition: Boolean, predicate: (T) ->
 
 @Composable
 fun GameModListScreen(
-    selectedGame: Game,
     modifier: Modifier = Modifier,
 ) {
     val dataApi = LocalDataApi.current
@@ -92,21 +93,22 @@ fun GameModListScreen(
     var modAvailableOnly by rememberSaveable { mutableStateOf(false) }
 
     val characters by produceState<List<CharacterWithModsAndTags>>(emptyList()) {
-        snapshotFlow { selectedGame }
-            .onEach { filters.clear() }
-            .flatMapLatest { g ->
-                database.observeByGameWithMods(g).map { items ->
-                    items.map { (character, modsWithTags) ->
-                        CharacterWithModsAndTags(
-                            character,
-                            modsWithTags.map { (mod, tags) ->
-                                ModWithTags(mod, tags)
-                            }
-                        )
-                    }
+
+        filters.clear()
+
+        withContext(Dispatchers.IO) {
+            database.observeByGameWithMods(dataApi.game).map { items ->
+                items.map { (character, modsWithTags) ->
+                    CharacterWithModsAndTags(
+                        character,
+                        modsWithTags.map { (mod, tags) ->
+                            ModWithTags(mod, tags)
+                        }
+                    )
                 }
             }
-            .collect { value = it }
+                .collect { value = it }
+        }
     }
 
     val filteredCharacters by produceState<List<CharacterWithModsAndTags>>(emptyList()) {
@@ -205,7 +207,7 @@ fun GameModListScreen(
             }
             .collectLatest { req ->
 
-                if (CharacterSync.running.contains(selectedGame))
+                if (CharacterSync.running.contains(dataApi.game))
                     return@collectLatest
 
                 val (fromNetwork, onComplete) = when(req) {
@@ -220,7 +222,7 @@ fun GameModListScreen(
 
                 ensureActive()
                 val job = CharacterSync.sync(dataApi, fromNetwork)
-                CharacterSync.running[selectedGame] = job
+                CharacterSync.running[dataApi.game] = job
 
                 runCatching {  job.join() }
 

@@ -65,8 +65,8 @@ interface ModDao {
                 mod m
             WHERE 
                 m.game = :game AND (
-                    m.file_name LIKE '%' + :search + '%' OR
-                    m.gb_file_name LIKE '%' + :search + '%'
+                    LOWER(m.file_name) LIKE LOWER('%' || :search || '%') OR
+                    LOWER(m.gb_file_name) LIKE LOWER('%' || :search || '%')
                 )
         """
     )

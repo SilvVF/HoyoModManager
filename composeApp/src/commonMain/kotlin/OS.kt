@@ -1,6 +1,12 @@
 import java.io.File
 import java.text.CharacterIterator
 import java.text.StringCharacterIterator
+import java.time.Clock
+import java.time.Duration
+import java.time.Instant
+import java.time.LocalDateTime
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import kotlin.math.abs
 
 
@@ -60,5 +66,29 @@ object OS {
         OperatingSystem.Linux -> File(System.getProperty("user.home"), ".cache/$APP_NAME")
         OperatingSystem.MacOS -> File(System.getProperty("user.home"), "Library/Caches/$APP_NAME")
         else -> throw IllegalStateException("Unsupported operating system")
+    }
+
+    fun getRelativeTimeSpanString(epochSecond: Long): String {
+        val now = Instant.now()
+        val inputTime = Instant.ofEpochSecond(epochSecond)
+
+        val duration = Duration.between(inputTime, now)
+
+        val seconds = duration.seconds
+        val minutes = duration.toMinutes()
+        val hours = duration.toHours()
+        val days = duration.toDays()
+
+        return when {
+            seconds < 60 -> "Just now"
+            minutes < 60 -> "$minutes minutes ago"
+            hours < 24 -> "$hours hours ago"
+            days < 7 -> "$days days ago"
+            else -> {
+                val dateTime = LocalDateTime.ofInstant(inputTime, ZoneId.systemDefault())
+                val formatter = DateTimeFormatter.ofPattern("MMM d, yyyy")
+                dateTime.format(formatter)
+            }
+        }
     }
 }

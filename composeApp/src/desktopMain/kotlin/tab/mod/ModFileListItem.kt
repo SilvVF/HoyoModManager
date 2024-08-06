@@ -67,12 +67,7 @@ fun ModFileListItem(
     val elevation by animateDpAsState(if (active) 4.dp else 0.dp)
 
     val date = remember {
-        uploadEpochSecond?.let {
-            DateFormat.getDateInstance(DateFormat.SHORT).format(
-                Date.from(Instant.ofEpochSecond(it.toLong()))
-            )
-        }
-            .orEmpty()
+        uploadEpochSecond?.let { OS.getRelativeTimeSpanString(it.toLong()) }.orEmpty()
     }
 
     Surface(

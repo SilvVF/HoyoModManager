@@ -30,14 +30,14 @@ interface GameTab: Tab, SearchableTab {
     override val key: ScreenKey get() = super.key + game.name
 
     override suspend fun results(query: String): List<SearchResult> {
-        val matchingCharacterCount = database.execute {
-            selectCountCharacterNamesContaining(query, game)
+        val matchingCharacters = database.execute {
+            selectCharactersNamesContaining(query, game)
         }
         val matchingModCount = database.execute {
             selectCountModsContaining(query, game)
         }
 
-        println("${game.name} $query Characters ${matchingCharacterCount}, Mods $matchingModCount")
+        println("${game.name} $query Characters ${matchingCharacters.size}, Mods $matchingModCount")
 
         return buildList {
             if (matchingModCount > 0) {
@@ -45,15 +45,20 @@ interface GameTab: Tab, SearchableTab {
                     SearchResult(
                         "$matchingModCount Mods",
                         tab = this@GameTab,
+                        tags = emptyList(),
                         searchTag = "mod"
                     )
                 )
             }
-            if (matchingCharacterCount > 0) {
+            if (matchingCharacters.isNotEmpty()) {
                 add(
                     SearchResult(
-                        "$matchingCharacterCount Characters",
+                        "${matchingCharacters.size} Characters",
                         tab = this@GameTab,
+                        tags = matchingCharacters.map {
+                            listOf(Pair("c", it.name), Pair("character", it.name))
+                        }
+                            .flatten(),
                         searchTag = "character"
                     )
                 )
@@ -79,7 +84,7 @@ interface GameTab: Tab, SearchableTab {
                 }
             }
         ) {
-            GameModListScreen(game, Modifier.fillMaxSize())
+            GameModListScreen(Modifier.fillMaxSize())
         }
     }
 }

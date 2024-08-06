@@ -13,6 +13,7 @@ import core.model.Mod
 import core.model.Playlist
 import core.model.PlaylistModCrossRef
 import core.model.Tag
+import kotlinx.coroutines.CoroutineName
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -43,7 +44,7 @@ class AppDatabase private constructor(
 ) : DatabaseDao by delegate.dao {
 
     private val queryExecutor: CoroutineContext = Dispatchers.IO
-    private val databaseScope =  CoroutineScope(queryExecutor + SupervisorJob())
+    private val databaseScope = CoroutineScope(queryExecutor + SupervisorJob() + CoroutineName("DatabaseScope"))
 
     fun launchQuery(scope: CoroutineScope, block: suspend AppDatabase.() -> Unit) =
         scope.launch(queryExecutor) { block(this@AppDatabase) }
