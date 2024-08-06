@@ -25,19 +25,40 @@ interface GameTab: Tab, SearchableTab {
 
     val game: Game
 
+    private val database: AppDatabase get() = AppDatabase.instance
+
     override val key: ScreenKey get() = super.key + game.name
 
     override suspend fun results(query: String): List<SearchResult> {
-        val count = AppDatabase.instance.searchResultsForString(query, game)
-        println("$game, $count")
-        return if (count > 0) {
-            listOf(
-                SearchResult(
-                    text = "${game.name} $count results",
-                    tab = this
+        val matchingCharacterCount = database.execute {
+            selectCountCharacterNamesContaining(query, game)
+        }
+        val matchingModCount = database.execute {
+            selectCountModsContaining(query, game)
+        }
+
+        println("${game.name} $query Characters ${matchingCharacterCount}, Mods $matchingModCount")
+
+        return buildList {
+            if (matchingModCount > 0) {
+                add(
+                    SearchResult(
+                        "$matchingModCount Mods",
+                        tab = this@GameTab,
+                        searchTag = "mod"
+                    )
                 )
-            )
-        } else emptyList()
+            }
+            if (matchingCharacterCount > 0) {
+                add(
+                    SearchResult(
+                        "$matchingCharacterCount Characters",
+                        tab = this@GameTab,
+                        searchTag = "character"
+                    )
+                )
+            }
+        }
     }
 
     override fun onResultSelected(result: SearchResult, navigator: TabNavigator) {

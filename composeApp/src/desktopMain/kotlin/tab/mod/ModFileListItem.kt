@@ -171,7 +171,7 @@ private fun DownloadButton(
             ModDownloadState.Downloading -> {
                 val totalProgress by remember(downloadProgress, unzipProgress) {
                     derivedStateOf {
-                        (downloadProgress.frac + unzipProgress.frac / 2f).coerceIn(0f..1f)
+                        (downloadProgress.frac * 0.25f) + (unzipProgress.frac * 0.75f).coerceIn(0f..1f)
                     }
                 }
 

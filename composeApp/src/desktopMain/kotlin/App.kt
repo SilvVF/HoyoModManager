@@ -1,23 +1,37 @@
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.layout.wrapContentWidth
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.KeyboardArrowDown
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ElevatedAssistChip
+import androidx.compose.material3.ElevatedFilterChip
 import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationRail
 import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SearchBar
+import androidx.compose.material3.SearchBarDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.surfaceColorAtElevation
@@ -34,6 +48,7 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastForEach
@@ -48,10 +63,15 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.mapLatest
+import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.time.debounce
 import lib.voyager.Tab
 import lib.voyager.TabDisposable
 import lib.voyager.TabNavigator
@@ -59,12 +79,16 @@ import org.jetbrains.compose.ui.tooling.preview.Preview
 import tab.ReselectTab
 import tab.SearchableTab
 import tab.game.GameTab
+import tab.game.GenshinTab
+import tab.game.StarRailTab
+import tab.game.ZenlessZoneZeroTab
 import tab.mod.ModTab
 import tab.playlist.PlaylistTab
 import ui.AppTheme
 import ui.LocalDataApi
 import java.io.File
 import java.nio.file.Paths
+import java.time.Duration
 
 
 sealed interface SyncRequest {
@@ -72,25 +96,18 @@ sealed interface SyncRequest {
     data class UserInitiated(val network: Boolean): SyncRequest
 }
 
-private val gameTabs = Game.entries.map { game ->
-    object : GameTab {
 
-        override val key: ScreenKey = game.name
-
-        override val game: Game = game
-    }
-}
-
-private val otherTabs = listOf(
+private val tabs = listOf(
+    GenshinTab,
+    StarRailTab,
+    ZenlessZoneZeroTab,
     PlaylistTab,
     ModTab
 )
-
-private val tabs = otherTabs + gameTabs
-
 data class SearchResult(
     val text: String,
-    val tab: Tab? = null,
+    val tab: Tab,
+    val searchTag: String? = null,
     val route: Screen? = null
 )
 
@@ -101,18 +118,31 @@ class SearchState(
 
     var query by mutableStateOf(TextFieldValue(""))
 
-    val resultFlow: StateFlow<List<SearchResult>> = snapshotFlow { query.text }
-        .debounce(1000)
-        .map { getOtherResults(it) }
+    val resultFlow: StateFlow<List<SearchResult>> = combine(
+        snapshotFlow { query.text }.onStart { emit("") },
+        snapshotFlow { navigator.navigator.lastItemOrNull as? Tab }.onStart { emit(null) },
+    ) { query, tab ->
+        Pair(query, tab)
+    }
+        .debounce(Duration.ofSeconds(3))
+        .mapLatest { (q, tab) ->
+            tab?.let {
+                if (q.isEmpty()) {
+                    emptyList()
+                } else {
+                    getOtherResults(q, tab)
+                }
+            } ?: emptyList()
+        }
         .stateIn(
             scope,
-            SharingStarted.WhileSubscribed(5_000),
+            SharingStarted.Eagerly,
             emptyList()
         )
 
-    private suspend fun getOtherResults(query: String): List<SearchResult> {
-        return tabs.filter { navigator.current != it }.mapNotNull {
-            (it as? SearchableTab)?.results(query)
+    private suspend fun getOtherResults(query: String, currentTab: Tab): List<SearchResult> {
+        return tabs.filter { currentTab != it }.mapNotNull {
+            runCatching { (it as? SearchableTab)?.results(query) }.getOrNull()
         }
             .flatten()
     }
@@ -129,7 +159,7 @@ val LocalSearchState = staticCompositionLocalOf<SearchState> { error("Not provid
 fun App() {
     AppTheme {
         TabNavigator(
-            tab = gameTabs.first(),
+            tab = GenshinTab,
             tabDisposable = {
                 TabDisposable(it, tabs)
             }
@@ -144,33 +174,67 @@ fun App() {
 
                         val results by searchState.resultFlow.collectAsState()
 
+                        var selected by remember {
+                            mutableStateOf<Tab?>(null)
+                        }
+
+                        val grouped = remember(results) { results.groupBy { it.tab } }
+                        val groupedList = remember(grouped) { grouped.toList() }
+
                         Surface(
                             modifier = Modifier.padding(8.dp),
                             shape = MaterialTheme.shapes.medium,
                         ) {
-                            SearchBar(
-                                modifier = Modifier.padding(4.dp)
-                                    .fillMaxWidth()
-                                    .clip(MaterialTheme.shapes.small)
-                                    .heightIn(max = 120.dp),
-                                query = searchState.query.text,
-                                onQueryChange =  { searchState.update(it) },
-                                onSearch = { searchState.update(it) },
-                                onActiveChange = {},
-                                active = results.isNotEmpty(),
+                            Column(
+                                Modifier
+                                    .wrapContentHeight()
+                                    .animateContentSize()
                             ) {
-                                FlowRow {
-                                    results.fastForEach { result ->
-                                        AssistChip(
-                                            onClick = {
-                                                when  {
-                                                    result.tab != null -> {
-                                                        (result.tab as? SearchableTab)?.onResultSelected(result, navigator)
-                                                    }
-                                                }
-                                            },
-                                            label = { Text(result.text) }
-                                        )
+                                SearchBar(
+                                    modifier = Modifier.fillMaxWidth(0.8f),
+                                    query = searchState.query.text,
+                                    onQueryChange =  { searchState.update(it) },
+                                    onSearch = { searchState.update(it) },
+                                    onActiveChange = {},
+                                    active = false,
+                                ){}
+                                if (results.isNotEmpty()) {
+                                    Text("Other results for ${searchState.query.text}")
+                                    FlowRow {
+                                        groupedList.fastForEach { (tab, results) ->
+                                            val isSelected = tab == selected
+                                            ElevatedFilterChip(
+                                                selected = isSelected,
+                                                leadingIcon = {
+                                                    Icon(
+                                                        imageVector = Icons.Outlined.KeyboardArrowDown,
+                                                        contentDescription = null,
+                                                        modifier = Modifier.rotate(if (isSelected) 180f else 0f)
+                                                    )
+                                                },
+                                                onClick = { selected = if(isSelected) null else tab },
+                                                label = { Text(tab.toString()) },
+                                                trailingIcon = { Text(results.size.toString()) },
+                                                modifier = Modifier.padding(2.dp)
+                                            )
+                                        }
+                                    }
+                                    AnimatedContent(selected) { targetState ->
+
+                                        val selectedResults = remember(grouped) { grouped[targetState] }
+
+                                        FlowRow {
+                                            selectedResults?.fastForEach { result ->
+                                                ElevatedAssistChip(
+                                                    onClick = {
+                                                        (result.tab as? SearchableTab)
+                                                            ?.onResultSelected(result, navigator)
+                                                    },
+                                                    label = { Text(result.text) },
+                                                    modifier = Modifier.padding(2.dp)
+                                                )
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -187,31 +251,18 @@ fun App() {
                                 .padding(start = 12.dp, end = 4.dp)
                                 .clip(MaterialTheme.shapes.medium)
                         ) {
-
-                            val handleSelect = { tab: Tab ->
-
-                                if (navigator.current == tab && tab is ReselectTab) {
-                                    tab.onReselect()
-                                } else {
-                                    navigator.current = tab
-                                }
-                            }
-
-                            gameTabs.fastForEach { tab ->
-                                NavigationRailItem(
-                                    selected = when (val screen = navigator.current) {
-                                        is GameTab -> tab.game == screen.game
-                                        else -> false
-                                    },
-                                    onClick = { handleSelect(tab) },
-                                    label = { Text(tab.game.name) },
-                                    icon = { tab.Icon() }
-                                )
-                            }
-                            otherTabs.fastForEach { tab ->
+                            tabs.fastForEach { tab ->
                                 NavigationRailItem(
                                     selected = navigator.current == tab ,
-                                    onClick = { handleSelect(tab) },
+                                    onClick = {
+                                        if (navigator.current == tab) {
+                                            (tab as? ReselectTab)?.let {
+                                                scope.launch { tab.onReselect() }
+                                            }
+                                        } else {
+                                            navigator.current = tab
+                                        }
+                                    },
                                     label = { Text(tab.toString()) },
                                     icon = { tab.Icon() }
                                 )

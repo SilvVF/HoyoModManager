@@ -4,14 +4,18 @@ import SearchResult
 import androidx.annotation.CallSuper
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import cafe.adriel.voyager.core.screen.Screen
+import cafe.adriel.voyager.navigator.Navigator
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.channels.Channel.Factory.UNLIMITED
 import kotlinx.coroutines.flow.FlowCollector
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import lib.voyager.Tab
 import lib.voyager.TabNavigator
+import kotlin.reflect.KClass
 
 interface SearchableTab {
 
@@ -22,25 +26,22 @@ interface SearchableTab {
 
 interface ReselectTab {
 
-    fun onReselect()
+    suspend fun onReselect()
 
     companion object {
         fun compose() = object: ComposeReselectTab {
 
-            override val scope = CoroutineScope(Dispatchers.Main)
-
-            override val events = Channel<Unit>()
+            override val events = Channel<Unit>(UNLIMITED)
 
             @CallSuper
-            override fun onReselect() {
-                scope.launch { events.send(Unit) }
+            override suspend fun onReselect() {
+                events.send(Unit)
             }
         }
     }
 }
 
 interface ComposeReselectTab: ReselectTab {
-    val scope: CoroutineScope
     val events: Channel<Unit>
 }
 

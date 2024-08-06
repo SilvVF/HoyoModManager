@@ -7,6 +7,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
@@ -28,11 +29,12 @@ import tab.ComposeReselectTab
 import tab.LaunchedOnReselect
 import tab.SearchableTab
 import ui.LocalDataApi
+import kotlin.reflect.KClass
 
 data object ModTab: Tab, ComposeReselectTab by ReselectTab.compose(), SearchableTab {
 
     @Transient
-    private val onResultChannel = Channel<SearchResult>()
+    var nestedNavigator: Navigator? = null
 
     @Composable
     override fun Icon() =
@@ -41,32 +43,35 @@ data object ModTab: Tab, ComposeReselectTab by ReselectTab.compose(), Searchable
             contentDescription = null
         )
 
+    override suspend fun results(query: String): List<SearchResult> {
+        return emptyList()
+    }
+
+    override fun onResultSelected(result: SearchResult, navigator: TabNavigator) {
+        navigator.current = this
+        val route = result.route
+        val nav = nestedNavigator
+        if (route!= null && nav != null) {
+            with(nav) {
+                replaceAll(items.filterNot { screen -> screen == route } + route)
+            }
+        }
+    }
+
+
     @Composable
     override fun Content() {
         Navigator(ModBrowse(GenshinApi.skinCategoryId)) { navigator ->
+
+            nestedNavigator = navigator
+
             LaunchedOnReselect {
                 navigator.popUntilRoot()
-            }
-
-            LaunchedEffect(onResultChannel) {
-                onResultChannel.receiveAsFlow().collect {
-                    it.route?.let { r ->
-                        navigator.replaceAll(
-                            navigator.items.filterNot { it == r } + r
-                        )
-                    }
-                }
             }
 
             ModTabContent(navigator)
         }
     }
-
-    override suspend fun results(query: String): List<SearchResult> {
-        return emptyList()
-    }
-
-    override fun onResultSelected(result: SearchResult, navigator: TabNavigator) {}
 }
 
 @Composable

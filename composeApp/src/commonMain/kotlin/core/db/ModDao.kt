@@ -57,6 +57,21 @@ interface ModDao {
     @Query("SELECT * FROM mod WHERE gb_id = :gameBananaId")
     fun subscribeToModByGbId(gameBananaId: Int): Flow<List<Mod>>
 
+    @Query(
+        """
+            SELECT 
+                COUNT(DISTINCT m.id)
+            FROM 
+                mod m
+            WHERE 
+                m.game = :game AND (
+                    m.file_name LIKE '%' + :search + '%' OR
+                    m.gb_file_name LIKE '%' + :search + '%'
+                )
+        """
+    )
+    suspend fun selectCountModsContaining(search: String, game: Game): Int
+
     @Update
     suspend fun updateMod(mod: Mod)
 

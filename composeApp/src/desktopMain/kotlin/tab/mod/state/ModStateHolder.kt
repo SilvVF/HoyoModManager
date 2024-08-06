@@ -53,7 +53,7 @@ class ModStateHolder(
             .filterNotNull()
             .distinctUntilChanged()
             .onEach { name ->
-                val match = database.selectClosesMatch(dataApi.game, name)
+                val match = database.selectClosestMatch(dataApi.game, name)
                 _state.update { it.copy(character = match) }
             }
             .launchIn(scope)
