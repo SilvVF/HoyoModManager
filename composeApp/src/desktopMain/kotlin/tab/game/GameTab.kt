@@ -23,7 +23,7 @@ import kotlinx.coroutines.supervisorScope
 import lib.voyager.Tab
 import lib.voyager.TabNavigator
 import tab.SearchableTab
-import tab.mod.GameModListScreen
+import tab.mod.components.GameModListScreen
 import ui.LocalDataApi
 
 

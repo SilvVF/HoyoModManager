@@ -1,4 +1,4 @@
-package tab.mod
+package tab.mod.components
 
 import OS
 import androidx.compose.animation.core.animateDpAsState
@@ -44,11 +44,8 @@ import androidx.compose.ui.util.fastForEach
 import tab.mod.state.ModDownloadState
 import tab.mod.state.Progress
 import ui.AppTheme
-import java.text.DateFormat
-import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneOffset
-import java.util.Date
 
 @Composable
 fun ModFileListItem(

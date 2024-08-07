@@ -4,6 +4,8 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.Preferences
 import core.db.prefs.DatastorePreferenceStore
+import core.db.prefs.getEnum
+import core.model.Game
 import okio.Path.Companion.toOkioPath
 import okio.Path.Companion.toPath
 import java.nio.file.Path
@@ -15,19 +17,22 @@ fun createDataStore(producePath: () -> okio.Path): DataStore<Preferences> =
         produceFile = { producePath() }
     )
 
-internal const val dataStoreFileName = "dice.preferences_pb"
+private const val dataStoreFileName = "hmm.preferences_pb"
 
 object Prefs {
 
     private val store by lazy(LazyThreadSafetyMode.SYNCHRONIZED) {
         DatastorePreferenceStore(
             createDataStore {
-                Paths.get(OS.getCacheDir().path, dataStoreFileName).toOkioPath()
+                Paths.get(
+                    OS.getCacheDir().path,
+                    dataStoreFileName
+                ).toOkioPath()
             }
         )
     }
 
-    const val APP_PREF = "hmm_pref:"
+    private const val APP_PREF = "hmm_pref:"
 
     fun genshinDir() = store.getString("${APP_PREF}genshin_dir")
 
@@ -37,4 +42,5 @@ object Prefs {
 
     fun ignoreOnGeneration() = store.getStringSet("${APP_PREF}ignore_on_generation")
 
+    fun lastModScreen() = store.getEnum("${APP_PREF}last_mod_screen", Game.Genshin)
 }

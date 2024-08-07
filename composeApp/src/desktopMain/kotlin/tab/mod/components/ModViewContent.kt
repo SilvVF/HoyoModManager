@@ -1,4 +1,4 @@
-package tab.mod
+package tab.mod.components
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.LocalScrollbarStyle
@@ -32,7 +32,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowLeft
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Divider
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton

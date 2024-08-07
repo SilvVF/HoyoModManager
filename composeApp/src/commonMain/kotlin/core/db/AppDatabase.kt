@@ -41,7 +41,7 @@ class AppDatabase private constructor(
     private val delegate: InternalDatabase
 ) : DatabaseDao by delegate.dao {
 
-    private val queryExecutor: CoroutineContext = Dispatchers.IO.limitedParallelism(2)
+    private val queryExecutor: CoroutineContext = Dispatchers.IO.limitedParallelism(4)
     private val databaseScope = CoroutineScope(queryExecutor + SupervisorJob() + CoroutineName("DatabaseScope"))
 
     fun launchQuery(scope: CoroutineScope, block: suspend AppDatabase.() -> Unit) =

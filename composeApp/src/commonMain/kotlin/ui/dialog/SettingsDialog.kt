@@ -43,6 +43,8 @@ import core.model.Game
 import core.model.Game.*
 import core.rememberDirectoryPickerLauncher
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.launch
 import java.io.File
 
@@ -82,14 +84,13 @@ fun SettingsDialog(
     onDismissRequest: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
-    val database = LocalDatabase.current
 
     val currentDirs by produceState(emptyMap()) {
         with(Prefs) {
             kotlinx.coroutines.flow.combine(
-                genshinDir().changes(),
-                zenlessDir().changes(),
-                starRailDir().changes()
+                genshinDir().changes().onStart { emit(genshinDir().get()) },
+                zenlessDir().changes().onStart { emit(zenlessDir().get()) },
+                starRailDir().changes().onStart { emit(starRailDir().get()) }
             ) { genshin, zenless, honkai ->
                 value = mapOf(
                     Genshin to genshin,
@@ -97,6 +98,7 @@ fun SettingsDialog(
                     StarRail to honkai
                 )
             }
+                .launchIn(this@produceState)
         }
     }
 

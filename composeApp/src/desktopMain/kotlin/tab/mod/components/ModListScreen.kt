@@ -1,4 +1,4 @@
-package tab.mod
+package tab.mod.components
 
 import CharacterSync
 import GenerateButton
@@ -48,19 +48,13 @@ import androidx.compose.ui.unit.dp
 import core.db.LocalDatabase
 import core.model.Character
 import core.model.CharacterWithModsAndTags
-import core.model.Game
 import core.model.ModWithTags
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.onEach
-import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.supervisorScope

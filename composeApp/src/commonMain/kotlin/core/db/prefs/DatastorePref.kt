@@ -10,6 +10,7 @@ import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -109,6 +110,8 @@ inline fun <reified T : Enum<T>> PreferenceStore.getEnum(
 suspend inline fun <reified T, R : T> Preference<T>.getAndSet(crossinline block: (T) -> R) = set(
     block(get()),
 )
+
+fun <T> Preference<T>.getBlocking() = runBlocking(Dispatchers.IO) { get() }
 
 suspend operator fun <T> Preference<Set<T>>.plusAssign(item: T) {
     set(get() + item)
