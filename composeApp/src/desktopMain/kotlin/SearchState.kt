@@ -3,35 +3,23 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.staticCompositionLocalOf
-import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import cafe.adriel.voyager.core.screen.Screen
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
-import kotlinx.coroutines.flow.emitAll
-import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.launchIn
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.onStart
-import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.flow.toList
-import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.supervisorScope
-import kotlinx.coroutines.time.debounce
 import lib.voyager.Tab
 import lib.voyager.TabNavigator
 import tab.SearchableTab
-import java.net.URL
-import java.time.Duration
 
 data class SearchResult(
     val tab: Tab,
@@ -76,7 +64,7 @@ class SearchState(
             }
             .onEach { (q, results) ->
                 supervisorScope {
-                    launch { createSuggestions(q, results) }
+                    launch { createSuggestions(q.trim(), results) }
                     _results.emit(results)
                 }
             }
@@ -86,18 +74,24 @@ class SearchState(
 
     private suspend fun createSuggestions(query: String, results: List<SearchResult>) {
 
-        if (query.isEmpty()) return
+        if (query.isEmpty()) {
+            _autocomplete.emit(emptyList())
+            return
+        }
 
         val tagString = query.slice(0..<query.lastIndexOf(':'))
 
         val searchTags = tagString.split(':').map { it.trim() }.toSet()
         val search = query.takeLastWhile { it != ':' }
 
-        val possibleTags = TAGS.filter { it.startsWith(search) && !searchTags.contains(it) }
+        val possibleTags = if (search.isEmpty())
+            emptyList()
+        else
+            TAGS.filter { it.startsWith(search) && !searchTags.contains(it) }
 
         val completedSearches = if (possibleTags.isNotEmpty()) {
             possibleTags.map { tag ->
-                "$tagString$tag: "
+                "$tagString${if (tagString.isNotEmpty()) ":" else ""}$tag: "
             }
         } else {
             results.map {
@@ -108,9 +102,35 @@ class SearchState(
         _autocomplete.emit(completedSearches)
     }
 
-    private suspend fun getOtherResults(query: String, currentTab: Tab): List<SearchResult> {
-        return TABS_LIST.filter { currentTab != it }.mapNotNull {
-            runCatching { (it as? SearchableTab)?.results(query) }.getOrNull()
+    private fun removeWhitespace(string: String) = string.trim(' ')
+    private fun toLower(string: String) = string.lowercase()
+
+    private suspend fun getOtherResults(raw: String, currentTab: Tab): List<SearchResult> {
+
+        val lastTagIdx = raw.lastIndexOf(':')
+        val query = raw.slice(
+            lastTagIdx.coerceAtLeast(0)..raw.lastIndex
+        )
+            .removePrefix(":")
+            .trim()
+
+        val tags = if(lastTagIdx == -1) {
+            emptySet()
+        } else {
+            println("=======")
+            raw.removeSuffix(query)
+                .split(':')
+                .map(::removeWhitespace)
+                .map(::toLower)
+                .filter(TAGS::contains)
+                .toSet()
+        }
+
+        return TABS_LIST.mapNotNull { tab ->
+            runCatching {
+                (tab as? SearchableTab)?.results(tags, query, tab == currentTab)
+            }
+                .getOrNull()
         }
             .flatten()
     }

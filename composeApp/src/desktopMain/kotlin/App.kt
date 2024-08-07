@@ -1,6 +1,7 @@
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
@@ -40,6 +41,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastForEach
 import core.api.DataApi
@@ -95,11 +98,6 @@ fun App() {
 
             val scope = rememberCoroutineScope()
             val searchState = remember { SearchState(scope, navigator) }
-            val autocomplete by searchState.autoComplete.collectAsState()
-
-            val auto by remember(autocomplete) {
-                derivedStateOf { autocomplete.take(5) }
-            }
 
             Row {
                 NavigationRail(
@@ -129,101 +127,41 @@ fun App() {
                 Scaffold(
                     topBar = {
                         Box(Modifier.fillMaxWidth(0.8f).animateContentSize(), contentAlignment = Alignment.Center) {
-
-                            val results by searchState.results.collectAsState()
-
-                            var selected by remember {
-                                mutableStateOf<Tab?>(null)
-                            }
-
-                            val grouped = remember(results) { results.groupBy { it.tab } }
-                            val groupedList = remember(grouped) { grouped.toList() }
-
                             Surface(
                                 modifier = Modifier.padding(8.dp),
                                 shape = MaterialTheme.shapes.medium,
                             ) {
                                 Column(
-                                    Modifier
-                                        .wrapContentHeight()
-                                        .animateContentSize()
+                                    Modifier.wrapContentHeight()
                                 ) {
                                     SearchBar(
-                                        modifier = Modifier.fillMaxWidth(0.8f),
                                         query = searchState.query.text,
                                         onQueryChange =  { searchState.update(it) },
                                         onSearch = { searchState.update(it) },
                                         onActiveChange = {},
                                         active = false,
+                                        modifier = Modifier.fillMaxWidth(0.8f)
                                     ){}
-                                    Column {
-                                        auto.fastForEach {
-                                            Text(
-                                                text = it,
-                                                modifier = Modifier.clickable {
-                                                    searchState.update(it)
-                                                }
-                                            )
-                                            Divider()
-                                        }
-                                    }
-                                    if (results.isNotEmpty()) {
-                                        Text("Other results for ${searchState.query.text}")
-                                        FlowRow {
-                                            groupedList.fastForEach { (tab, results) ->
-                                                val isSelected = tab == selected
-                                                ElevatedFilterChip(
-                                                    selected = isSelected,
-                                                    leadingIcon = {
-                                                        Icon(
-                                                            imageVector = Icons.Outlined.KeyboardArrowDown,
-                                                            contentDescription = null,
-                                                            modifier = Modifier.rotate(if (isSelected) 180f else 0f)
-                                                        )
-                                                    },
-                                                    onClick = { selected = if(isSelected) null else tab },
-                                                    label = { Text(tab.toString()) },
-                                                    trailingIcon = { Text(results.size.toString()) },
-                                                    modifier = Modifier.padding(2.dp)
-                                                )
-                                            }
-                                        }
-                                        AnimatedContent(selected) { targetState ->
-
-                                            val resultGroups = remember(grouped) {
-                                                grouped[targetState]?.groupBy { it.tags }?.toList().orEmpty()
-                                            }
-
-                                            FlowRow {
-                                                resultGroups.fastForEach { group ->
-                                                    ElevatedAssistChip(
-                                                        onClick = {
-                                                            (targetState as? SearchableTab)
-                                                                ?.onResultSelected(
-                                                                    group.second.first(),
-                                                                    navigator
-                                                                )
-                                                        },
-                                                        label = { Text(group.first.joinToString(", ")) },
-                                                        modifier = Modifier.padding(2.dp)
-                                                    )
-                                                }
-                                            }
-                                        }
-                                    }
+                                    SearchSuggestions(
+                                        searchState = searchState,
+                                        navigator = navigator
+                                    )
                                 }
                             }
                         }
                     }
                 ) { contentPadding ->
-                    Box(Modifier.padding(contentPadding), Alignment.Center) {
+                    Box(
+                        Modifier.padding(contentPadding),
+                        Alignment.Center
+                    ) {
                         CompositionLocalProvider(
                             LocalSearchState provides searchState
                         ) {
                             Surface(
                                 modifier = Modifier
                                     .padding(vertical = 8.dp)
-                                    .padding(start =4.dp, end = 12.dp)
+                                    .padding(start = 4.dp, end = 12.dp)
                                     .fillMaxSize(),
                                 shape = MaterialTheme.shapes.medium,
                                 color = MaterialTheme.colorScheme.surfaceColorAtElevation(2.dp)
@@ -238,7 +176,85 @@ fun App() {
     }
 }
 
+@Composable
+fun SearchSuggestions(
+    searchState: SearchState,
+    navigator: TabNavigator,
+    modifier: Modifier = Modifier
+) {
 
+    var selected by remember {
+        mutableStateOf<Tab?>(null)
+    }
+    val results by searchState.results.collectAsState()
+    val grouped = remember(results) { results.groupBy { it.tab } }
+    val groupedList = remember(grouped) { grouped.toList() }
+
+    val autocomplete by searchState.autoComplete.collectAsState()
+
+    val auto by remember(autocomplete) {
+        derivedStateOf {
+            if (autocomplete.size > 5) autocomplete.shuffled().take(5)
+            else autocomplete
+        }
+    }
+
+    Column(modifier.animateContentSize()) {
+        auto.fastForEach {
+            Text(
+                text = it,
+                modifier = Modifier.clickable {
+                    searchState.update(it)
+                }
+            )
+            Divider()
+        }
+        if (results.isNotEmpty()) {
+            Text("Other results for ${searchState.query.text}")
+            FlowRow {
+                groupedList.fastForEach { (tab, results) ->
+                    val isSelected = tab == selected
+                    ElevatedFilterChip(
+                        selected = isSelected,
+                        leadingIcon = {
+                            Icon(
+                                imageVector = Icons.Outlined.KeyboardArrowDown,
+                                contentDescription = null,
+                                modifier = Modifier.rotate(if (isSelected) 180f else 0f)
+                            )
+                        },
+                        onClick = { selected = if (isSelected) null else tab },
+                        label = { Text(tab.toString()) },
+                        trailingIcon = { Text(results.size.toString()) },
+                        modifier = Modifier.padding(2.dp)
+                    )
+                }
+            }
+            AnimatedContent(selected) { targetState ->
+
+                val resultGroups = remember(grouped) {
+                    grouped[targetState]?.groupBy { it.tags }?.toList().orEmpty()
+                }
+
+                FlowRow {
+                    resultGroups.fastForEach { group ->
+                        ElevatedAssistChip(
+                            onClick = {
+                                (targetState as? SearchableTab)
+                                    ?.onResultSelected(
+                                        group.second.first(),
+                                        navigator
+                                    )
+                            },
+                            label = { Text(group.first.joinToString(", ")) },
+                            modifier = Modifier.padding(2.dp)
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
 
 @Composable
 fun GenerateButton(

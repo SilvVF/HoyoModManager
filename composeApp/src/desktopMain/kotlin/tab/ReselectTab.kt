@@ -19,7 +19,7 @@ import kotlin.reflect.KClass
 
 interface SearchableTab {
 
-    suspend fun results(query: String): List<SearchResult>
+    suspend fun results(tags: Set<String>, query: String, current: Boolean): List<SearchResult>
 
     fun onResultSelected(result: SearchResult, navigator: TabNavigator)
 }

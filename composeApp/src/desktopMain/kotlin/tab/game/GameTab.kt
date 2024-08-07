@@ -63,11 +63,22 @@ interface GameTab: Tab, SearchableTab {
         }
     }
 
-    override suspend fun results(query: String): List<SearchResult> {
+    override suspend fun results(
+        tags: Set<String>,
+        query: String,
+        current: Boolean
+    ): List<SearchResult> {
         return supervisorScope {
-
-            val a = async { getCharacterResults(query) }
-            val b = async { getModResults(query) }
+            val a = async {
+                if (tags.isEmpty() || tags.contains(CHARACTER_TAG))
+                    getCharacterResults(query)
+                else emptyList()
+            }
+            val b = async {
+                if (tags.isEmpty() || tags.contains(MOD_TAG))
+                    getModResults(query)
+                else emptyList()
+            }
 
             awaitAll(a, b).flatten()
         }

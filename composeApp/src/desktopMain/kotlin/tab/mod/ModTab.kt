@@ -1,6 +1,7 @@
 package tab.mod
 
 import SearchResult
+import SearchState.Companion.URL_TAG
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -45,6 +46,7 @@ import androidx.compose.ui.util.fastForEachIndexed
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.Navigator
 import cafe.adriel.voyager.transitions.FadeTransition
+import com.eygraber.uri.Url
 import core.api.GenshinApi
 import core.api.StarRailApi
 import core.api.ZZZApi
@@ -71,6 +73,20 @@ data object ModTab: Tab, ComposeReselectTab by ReselectTab.compose(), Searchable
     @Transient
     var nestedNavigator: Navigator? = null
 
+    private val defaultRecommendedUrls = listOf(
+        SearchResult(
+            search = "https://gamebanana.com/mods/",
+            tab = this,
+            tags = setOf(URL_TAG),
+
+        ),
+        SearchResult(
+            search =  "https://gamebanana.com/mods/cats/",
+            tab = this,
+            tags = setOf(URL_TAG)
+        )
+    )
+
     @Composable
     override fun Icon() =
         androidx.compose.material3.Icon(
@@ -78,15 +94,28 @@ data object ModTab: Tab, ComposeReselectTab by ReselectTab.compose(), Searchable
             contentDescription = null
         )
 
-    override suspend fun results(query: String): List<SearchResult> {
-        return emptyList()
+    override suspend fun results(
+        tags: Set<String>,
+        query: String,
+        current: Boolean
+    ): List<SearchResult> {
+
+        val url = if (tags.isEmpty() || tags.contains(URL_TAG)) {
+            Url.parseOrNull(query)
+        } else null
+
+        if (url == null) return if (tags.contains(URL_TAG)) defaultRecommendedUrls else emptyList()
+
+        return defaultRecommendedUrls
     }
 
     override fun onResultSelected(result: SearchResult, navigator: TabNavigator) {
         navigator.current = this
+
         val route = result.route
         val nav = nestedNavigator
-        if (route!= null && nav != null) {
+
+        if (route != null && nav != null) {
             with(nav) {
                 replaceAll(items.filterNot { screen -> screen == route } + route)
             }
