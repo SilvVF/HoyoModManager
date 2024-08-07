@@ -130,7 +130,7 @@ fun App() {
                     topBar = {
                         Box(Modifier.fillMaxWidth(0.8f).animateContentSize(), contentAlignment = Alignment.Center) {
 
-                            val results by searchState.resultFlow.collectAsState()
+                            val results by searchState.results.collectAsState()
 
                             var selected by remember {
                                 mutableStateOf<Tab?>(null)
@@ -157,14 +157,11 @@ fun App() {
                                         active = false,
                                     ){}
                                     Column {
-                                        auto.fastForEach { (hint, tab) ->
+                                        auto.fastForEach {
                                             Text(
-                                                hint,
+                                                text = it,
                                                 modifier = Modifier.clickable {
-                                                    searchState.update(hint)
-                                                    tab?.let {
-                                                        navigator.current = it
-                                                    }
+                                                    searchState.update(it)
                                                 }
                                             )
                                             Divider()
@@ -193,16 +190,21 @@ fun App() {
                                         }
                                         AnimatedContent(selected) { targetState ->
 
-                                            val selectedResults = remember(grouped) { grouped[targetState] }
+                                            val resultGroups = remember(grouped) {
+                                                grouped[targetState]?.groupBy { it.tags }?.toList().orEmpty()
+                                            }
 
                                             FlowRow {
-                                                selectedResults?.fastForEach { result ->
+                                                resultGroups.fastForEach { group ->
                                                     ElevatedAssistChip(
                                                         onClick = {
-                                                            (result.tab as? SearchableTab)
-                                                                ?.onResultSelected(result, navigator)
+                                                            (targetState as? SearchableTab)
+                                                                ?.onResultSelected(
+                                                                    group.second.first(),
+                                                                    navigator
+                                                                )
                                                         },
-                                                        label = { Text(result.text) },
+                                                        label = { Text(group.first.joinToString(", ")) },
                                                         modifier = Modifier.padding(2.dp)
                                                     )
                                                 }

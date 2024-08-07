@@ -1,6 +1,8 @@
 package tab.game
 
 import SearchResult
+import SearchState.Companion.CHARACTER_TAG
+import SearchState.Companion.MOD_TAG
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -15,57 +17,59 @@ import core.model.Game
 import core.model.Game.Genshin
 import core.model.Game.StarRail
 import core.model.Game.ZZZ
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.supervisorScope
 import lib.voyager.Tab
 import lib.voyager.TabNavigator
 import tab.SearchableTab
 import tab.mod.GameModListScreen
 import ui.LocalDataApi
 
+
 interface GameTab: Tab, SearchableTab {
 
     val game: Game
 
-    private val database: AppDatabase get() = AppDatabase.instance
-
     override val key: ScreenKey get() = game.name
 
-    override suspend fun results(query: String): List<SearchResult> {
-        val matchingCharacters = database.execute {
-            selectCharactersNamesContaining(query, game)
-        }
+    private suspend fun getModResults(query: String): List<SearchResult> {
+
         val matchingMods = database.execute {
             selectModsContaining(query, game)
         }
 
-        println("${game.name} $query Characters ${matchingCharacters.size}, Mods ${matchingMods.size}")
+        return  matchingMods.map {
+            SearchResult(
+                search = it.fileName,
+                tab = this,
+                tags = modTags,
+            )
+        }
+    }
 
-        return buildList {
-            if (matchingMods.isNotEmpty()) {
-                add(
-                    SearchResult(
-                        "${matchingMods.size} Mods",
-                        tab = this@GameTab,
-                        tags = matchingMods.map {
-                            listOf(Pair("m", it.fileName), Pair("mod", it.fileName))
-                        }
-                            .flatten(),
-                        searchTag = "mod"
-                    )
-                )
-            }
-            if (matchingCharacters.isNotEmpty()) {
-                add(
-                    SearchResult(
-                        "${matchingCharacters.size} Characters",
-                        tab = this@GameTab,
-                        tags = matchingCharacters.map {
-                            listOf(Pair("c", it.name), Pair("character", it.name))
-                        }
-                            .flatten(),
-                        searchTag = "character"
-                    )
-                )
-            }
+    private suspend fun getCharacterResults(query: String): List<SearchResult> {
+
+        val matchingCharacters = database.execute {
+            selectCharactersNamesContaining(query, game)
+        }
+
+        return  matchingCharacters.map {
+            SearchResult(
+                search = it.name,
+                tab = this,
+                tags = characterTags,
+            )
+        }
+    }
+
+    override suspend fun results(query: String): List<SearchResult> {
+        return supervisorScope {
+
+            val a = async { getCharacterResults(query) }
+            val b = async { getModResults(query) }
+
+            awaitAll(a, b).flatten()
         }
     }
 
@@ -89,5 +93,12 @@ interface GameTab: Tab, SearchableTab {
         ) {
             GameModListScreen(Modifier.fillMaxSize())
         }
+    }
+
+    companion object {
+        private val database: AppDatabase = AppDatabase.instance
+
+        private val modTags = setOf(MOD_TAG)
+        private val characterTags = setOf(CHARACTER_TAG)
     }
 }
