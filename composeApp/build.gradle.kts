@@ -36,7 +36,9 @@ kotlin {
             implementation(libs.ktor.client.core)
             implementation(libs.ktor.content.negotiation)
             implementation(libs.ktor.serialization.json)
-
+            
+            api(libs.androidx.datastore.preferences.core)
+            api(libs.androidx.datastore.core.okio)
 
             implementation("com.squareup.okio:okio:3.9.0")
             implementation("io.github.vinceglb:filekit-core:0.7.0")

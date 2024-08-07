@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 2,
-    "identityHash": "41d1877beaadc0d1154def5c4028eb53",
+    "identityHash": "49fe75629e0d9ba04af0b50e6364159a",
     "entities": [
       {
         "tableName": "mod",
@@ -107,35 +107,6 @@
             "createSql": "CREATE INDEX IF NOT EXISTS `index_mod_enabled` ON `${TABLE_NAME}` (`enabled`)"
           }
         ]
-      },
-      {
-        "tableName": "MetaData",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`exportModDir` TEXT, `id` INTEGER NOT NULL, `keepFilesOnClear` TEXT NOT NULL, PRIMARY KEY(`id`))",
-        "fields": [
-          {
-            "fieldPath": "exportModDir",
-            "columnName": "exportModDir",
-            "affinity": "TEXT"
-          },
-          {
-            "fieldPath": "id",
-            "columnName": "id",
-            "affinity": "INTEGER",
-            "notNull": true
-          },
-          {
-            "fieldPath": "keepFilesOnClear",
-            "columnName": "keepFilesOnClear",
-            "affinity": "TEXT",
-            "notNull": true
-          }
-        ],
-        "primaryKey": {
-          "autoGenerate": false,
-          "columnNames": [
-            "id"
-          ]
-        }
       },
       {
         "tableName": "character",
@@ -320,7 +291,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '41d1877beaadc0d1154def5c4028eb53')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '49fe75629e0d9ba04af0b50e6364159a')"
     ]
   }
 }

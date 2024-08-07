@@ -63,6 +63,7 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.supervisorScope
 import kotlinx.coroutines.withContext
 import toggle
 import ui.CharacterToggleList
@@ -199,35 +200,32 @@ fun GameModListScreen(
     }
 
     LaunchedEffect(dataApi) {
-        syncTrigger.receiveAsFlow()
-            .onStart {
-                if (!CharacterSync.initialSyncDone.contains(dataApi.game)) {
-                    emit(SyncRequest.Startup)
+        withContext(Dispatchers.IO) {
+            syncTrigger.receiveAsFlow().collectLatest { req ->
+                supervisorScope {
+                    if (CharacterSync.running.contains(dataApi.game))
+                        return@supervisorScope
+
+                    val (fromNetwork, onComplete) = when (req) {
+                        SyncRequest.Startup -> false to {
+                            CharacterSync.running.remove(dataApi.game)
+                            CharacterSync.initialSyncDone.add(dataApi.game)
+                        }
+
+                        is SyncRequest.UserInitiated -> req.network to {
+                            CharacterSync.running.remove(dataApi.game)
+                        }
+                    }
+
+                    val job = CharacterSync.sync(dataApi, fromNetwork)
+                    CharacterSync.running[dataApi.game] = job
+
+                    runCatching { job.join() }
+
+                    onComplete()
                 }
             }
-            .collectLatest { req ->
-
-                if (CharacterSync.running.contains(dataApi.game))
-                    return@collectLatest
-
-                val (fromNetwork, onComplete) = when(req) {
-                    SyncRequest.Startup -> false to {
-                        CharacterSync.running.remove(dataApi.game)
-                        CharacterSync.initialSyncDone.add(dataApi.game)
-                    }
-                    is SyncRequest.UserInitiated -> req.network to {
-                        CharacterSync.running.remove(dataApi.game)
-                    }
-                }
-
-                ensureActive()
-                val job = CharacterSync.sync(dataApi, fromNetwork)
-                CharacterSync.running[dataApi.game] = job
-
-                runCatching {  job.join() }
-
-                onComplete()
-            }
+        }
     }
 }
 

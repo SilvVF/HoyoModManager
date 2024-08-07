@@ -44,7 +44,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastForEach
 import core.api.DataApi
 import core.db.LocalDatabase
+import core.db.Prefs
 import core.model.Game.Genshin
+import core.model.Game.StarRail
+import core.model.Game.ZZZ
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
@@ -154,8 +157,16 @@ fun App() {
                                         active = false,
                                     ){}
                                     Column {
-                                        auto.fastForEach {
-                                            Text(it, modifier = Modifier.clickable { searchState.update(it) })
+                                        auto.fastForEach { (hint, tab) ->
+                                            Text(
+                                                hint,
+                                                modifier = Modifier.clickable {
+                                                    searchState.update(hint)
+                                                    tab?.let {
+                                                        navigator.current = it
+                                                    }
+                                                }
+                                            )
                                             Divider()
                                         }
                                     }
@@ -241,10 +252,16 @@ fun GenerateButton(
         loading = true
         scope.launch(NonCancellable + Dispatchers.IO) {
 
-            val exportDir = File(database.selectMetaData()?.exportModDir?.get(dataApi.game.data) ?: return@launch)
+            val exportDir = File(
+                when (dataApi.game) {
+                    Genshin -> Prefs.genshinDir()
+                    StarRail -> Prefs.starRailDir()
+                    ZZZ -> Prefs.zenlessDir()
+                }.get()
+            )
             val selected = database.selectEnabledForGame(dataApi.game.data)
 
-            val ignore = database.selectMetaData()?.keepFilesOnClear.orEmpty()
+            val ignore = Prefs.ignoreOnGeneration().get()
 
             exportDir.listFiles()?.forEach { file ->
                 when {

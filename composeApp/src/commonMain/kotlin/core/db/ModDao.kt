@@ -60,7 +60,7 @@ interface ModDao {
     @Query(
         """
             SELECT 
-                COUNT(DISTINCT m.id)
+                *
             FROM 
                 mod m
             WHERE 
@@ -70,7 +70,7 @@ interface ModDao {
                 )
         """
     )
-    suspend fun selectCountModsContaining(search: String, game: Game): Int
+    suspend fun selectModsContaining(search: String, game: Game): List<Mod>
 
     @Update
     suspend fun updateMod(mod: Mod)

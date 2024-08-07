@@ -1,8 +1,12 @@
 import core.api.DataApi
 import core.db.AppDatabase
+import core.db.Prefs
 import core.model.Mod
 import core.model.Character
 import core.model.Game
+import core.model.Game.Genshin
+import core.model.Game.StarRail
+import core.model.Game.ZZZ
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.Job
@@ -23,7 +27,6 @@ object CharacterSync {
         fromNetwork: Boolean = false,
     ): Job = GlobalScope.launch(Dispatchers.IO) {
 
-        val newStats = mutableMapOf<Character, List<String>>()
         val seenMods = mutableSetOf<String>()
 
         val fetchFromNetwork = suspend {
@@ -53,12 +56,17 @@ object CharacterSync {
             }
 
             val modDirFiles = run {
-                val path = database.selectMetaData()?.exportModDir?.get(dataApi.game.data) ?: return@run emptyList<File>()
+                val path = when (dataApi.game) {
+                    Genshin -> Prefs.genshinDir()
+                    StarRail -> Prefs.starRailDir()
+                    ZZZ -> Prefs.zenlessDir()
+                }.get()
                 File(path).listFiles()?.toList() ?: emptyList()
             }
 
             val files = file.listFiles() ?: return@launch
-            newStats[c] = files.onEach { file ->
+
+            files.onEach { file ->
                 updateMod(file, c, modDirFiles)
                 seenMods.add(file.name)
             }

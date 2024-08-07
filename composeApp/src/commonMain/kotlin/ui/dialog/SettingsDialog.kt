@@ -37,28 +37,25 @@ import androidx.compose.ui.util.fastForEach
 import androidx.compose.ui.window.Dialog
 import core.db.AppDatabase
 import core.db.LocalDatabase
+import core.db.Prefs
+import core.db.prefs.getAndSet
 import core.model.Game
-import core.model.MetaData
+import core.model.Game.*
 import core.rememberDirectoryPickerLauncher
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import java.io.File
 
 private suspend fun updateDir(path: String, game: Game) = AppDatabase.instance.query {
-    val prev = selectMetaData()
-    if (prev != null) {
-        updateMetaData(
-            prev.copy(
-                exportModDir = prev.exportModDir?.toMutableMap()?.apply {
-                    this[game.data] = path
-                }
-            )
-        )
-    } else {
-        insertMetaData(
-            MetaData(mapOf(game.data to path))
-        )
+
+    val pref = when (game) {
+        Genshin -> Prefs.genshinDir()
+        StarRail -> Prefs.starRailDir()
+        ZZZ -> Prefs.zenlessDir()
     }
+
+    pref.set(path)
+
     val dir = File(path)
     val idToFileName = runCatching {
         buildList {
@@ -88,18 +85,24 @@ fun SettingsDialog(
     val database = LocalDatabase.current
 
     val currentDirs by produceState(emptyMap()) {
-        database.observe().collectLatest { prefs ->
-            value = buildMap {
-                Game.entries.forEach { game ->
-                    put(game, prefs?.exportModDir?.get(game.data)?.let(::File))
-                }
+        with(Prefs) {
+            kotlinx.coroutines.flow.combine(
+                genshinDir().changes(),
+                zenlessDir().changes(),
+                starRailDir().changes()
+            ) { genshin, zenless, honkai ->
+                value = mapOf(
+                    Genshin to genshin,
+                    ZZZ to zenless,
+                    StarRail to honkai
+                )
             }
         }
     }
 
     val ignored by produceState(emptyList()) {
-        database.observe().collectLatest { prefs ->
-           value = prefs?.keepFilesOnClear.orEmpty()
+        Prefs.ignoreOnGeneration().changes().collect {
+            value = it.toList()
         }
     }
 
@@ -110,8 +113,10 @@ fun SettingsDialog(
         title = "select a dir to ignore",
     ) { directory ->
         directory?.path?.let {
-            database.launchQuery(scope) {
-                addIgnoredFolder(path = directory.file.path)
+            scope.launch {
+                Prefs.ignoreOnGeneration().getAndSet { pref ->
+                    pref + it
+                }
             }
         }
     }
@@ -152,7 +157,7 @@ fun SettingsDialog(
                         horizontalArrangement = Arrangement.Start,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("${game.name}: ${file?.path ?: "not set"}", style = MaterialTheme.typography.titleSmall)
+                        Text("${game.name}: ${file.ifBlank { "not set" }}", style = MaterialTheme.typography.titleSmall)
                         IconButton(
                             onClick = { launchPicker(game) }
                         ) {
@@ -189,8 +194,10 @@ fun SettingsDialog(
                             )
                             IconButton(
                                 onClick = {
-                                    database.launchQuery(scope) {
-                                        removeIgnoredFolder(path = it)
+                                    scope.launch {
+                                        Prefs.ignoreOnGeneration().getAndSet { pref ->
+                                            pref - it
+                                        }
                                     }
                                 }
                             ) {

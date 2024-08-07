@@ -100,20 +100,24 @@ class SearchState(
 
     val autoComplete = _autocomplete.asStateFlow()
         .combine(resultFlow) { complete, results ->
-            buildList {
-                complete.forEach { s ->
-                    val tags = s.split(":").filter { it in NAMESPACE_TO_PREFIX.values + NAMESPACE_TO_PREFIX.keys }
-                    results.forEach { result ->
-                        result.tags.filter { (tag, _) ->
-                            tags.contains(tag)
-                        }.forEach { (tag, append) ->
-                            add("$tag: $append")
+            if (results.isEmpty()) {
+                 complete.map { it to null }
+            } else {
+                buildList<Pair<String, Tab?>> {
+                    complete.forEach { s ->
+                        val tags = s.split(":").filter { it in NAMESPACE_TO_PREFIX.values + NAMESPACE_TO_PREFIX.keys }
+                        results.forEach { result ->
+                            result.tags.filter { (tag, _) ->
+                                tags.contains(tag)
+                            }.forEach { (tag, append) ->
+                                add("$tag: $append" to result.tab)
+                            }
                         }
                     }
                 }
             }
         }
-        .stateIn(scope, SharingStarted.WhileSubscribed(5_000), emptyList<String>())
+        .stateIn(scope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     private suspend fun createSuggestions(query: String) {
         val tagsStripped = run {

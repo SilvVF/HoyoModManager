@@ -8,7 +8,6 @@ import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import core.model.Character
-import core.model.MetaData
 import core.model.Mod
 import core.model.Playlist
 import core.model.PlaylistModCrossRef
@@ -25,7 +24,6 @@ import kotlin.coroutines.CoroutineContext
 @Database(
     entities = [
         Mod::class,
-        MetaData::class,
         Character::class,
         Tag::class,
         Playlist::class,
@@ -43,7 +41,7 @@ class AppDatabase private constructor(
     private val delegate: InternalDatabase
 ) : DatabaseDao by delegate.dao {
 
-    private val queryExecutor: CoroutineContext = Dispatchers.IO
+    private val queryExecutor: CoroutineContext = Dispatchers.IO.limitedParallelism(2)
     private val databaseScope = CoroutineScope(queryExecutor + SupervisorJob() + CoroutineName("DatabaseScope"))
 
     fun launchQuery(scope: CoroutineScope, block: suspend AppDatabase.() -> Unit) =
@@ -65,6 +63,7 @@ class AppDatabase private constructor(
 
         private const val DB_NAME = "hmm.db"
 
+
         val instance by lazy(LazyThreadSafetyMode.SYNCHRONIZED) {
             AppDatabase(getRoomDatabase(getDatabaseBuilder()))
         }
@@ -82,9 +81,7 @@ class AppDatabase private constructor(
         ): InternalDatabase {
             return builder
                 .setDriver(BundledSQLiteDriver())
-                .fallbackToDestructiveMigration(true)
-                .fallbackToDestructiveMigrationOnDowngrade(true)
-                .setQueryCoroutineContext(Dispatchers.IO)
+                .setQueryCoroutineContext(Dispatchers.IO.limitedParallelism(4))
                 .build()
         }
     }
