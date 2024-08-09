@@ -14,6 +14,4 @@ interface DataApi {
     suspend fun elementList(): List<String>
 
     suspend fun characterList(): List<Character>
-
-    suspend fun topSubmissions()
 }

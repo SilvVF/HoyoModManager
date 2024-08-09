@@ -1,5 +1,6 @@
 package tab.mod.components
 
+import OS
 import androidx.compose.foundation.LocalScrollbarStyle
 import androidx.compose.foundation.VerticalScrollbar
 import androidx.compose.foundation.background
@@ -17,19 +18,21 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentSize
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.rememberScrollbarAdapter
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ElevatedFilterChip
-import androidx.compose.material3.LargeTopAppBar
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -42,7 +45,6 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
@@ -51,7 +53,6 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastForEach
 import com.seiko.imageloader.ui.AutoSizeImage
-import core.api.GenshinApi
 import fromHex
 import net.model.gamebanana.CategoryContentResponse
 import tab.mod.state.BrowseState.Failure
@@ -59,17 +60,22 @@ import tab.mod.state.BrowseState.Loading
 import tab.mod.state.BrowseState.Success
 import tab.mod.state.BrowseState.Success.PageLoadState
 import tab.mod.state.ModBrowseStateHolder
+import ui.LocalDataApi
 
 
 @Composable
 fun ModBrowseContent(
     categoryId: Int,
-    onModClick: (id: Int) -> Unit
+    onModClick: (id: Int) -> Unit,
+    onCategoryClick: (name: String, id: Int) -> Unit,
 ) {
 
     val scope = rememberCoroutineScope()
-    val dataApi = remember { GenshinApi }
-    val stateHolder = remember(dataApi) { ModBrowseStateHolder(dataApi, categoryId, scope) }
+    val dataApi = LocalDataApi.current
+
+    val stateHolder = remember(dataApi) {
+        ModBrowseStateHolder(dataApi, categoryId, scope)
+    }
 
     Scaffold { paddingValues ->
 
@@ -92,12 +98,29 @@ fun ModBrowseContent(
                 }
             }
             is Success -> {
-                PageContent(
-                    state = state,
-                    loadPage = { stateHolder.loadPage(it) },
-                    onModClick = onModClick,
-                    paddingValues = paddingValues
-                )
+                Row {
+                    PageContent(
+                        state = state,
+                        loadPage = { stateHolder.loadPage(it) },
+                        onModClick = onModClick,
+                        paddingValues = paddingValues,
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                    )
+
+                    if (state.subCategories.isNotEmpty()) {
+                        Column(Modifier.wrapContentWidth().verticalScroll(rememberScrollState())) {
+                            state.subCategories.fastForEach {
+                                TextButton(
+                                    onClick = { onCategoryClick(it.sName, it.idRow) }
+                                ) {
+                                    Text(it.sName)
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
     }
@@ -165,10 +188,11 @@ private fun PageContent(
     state: Success,
     loadPage: (page: Int) -> Unit,
     onModClick: (id: Int) -> Unit,
-    paddingValues: PaddingValues
+    paddingValues: PaddingValues,
+    modifier: Modifier
 ) {
     when (val data = state.mods[state.page] ?: return) {
-        PageLoadState.Failure -> Box(Modifier.fillMaxSize()) {
+        PageLoadState.Failure -> Box(modifier.fillMaxSize()) {
             TextButton(
                 onClick = { loadPage(state.page) },
                 modifier = Modifier.align(Alignment.Center)
@@ -176,12 +200,12 @@ private fun PageContent(
                 Text("Retry")
             }
         }
-        PageLoadState.Loading ->   Box(Modifier.fillMaxSize()) {
+        PageLoadState.Loading ->   Box(modifier.fillMaxSize()) {
             CircularProgressIndicator(Modifier.align(Alignment.Center))
         }
         is PageLoadState.Success -> {
             val gridState = rememberLazyGridState()
-            Box(Modifier.fillMaxSize()) {
+            Box(modifier.fillMaxSize()) {
                 LazyVerticalGrid(
                     state = gridState,
                     contentPadding = paddingValues,
@@ -306,7 +330,7 @@ private fun PageNumbersList(
     ) {
         val list = remember(page, lastPage) {
             val minPage = (page - 4).coerceAtLeast(1)
-            val maxPage = (page + 9 - (page - minPage)).coerceIn(1..lastPage)
+            val maxPage = (page + 9 - (page - minPage)).coerceIn(1..lastPage.coerceAtLeast(1))
 
             (minPage..maxPage).toList()
         }

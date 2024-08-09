@@ -8,16 +8,27 @@ import net.model.gamebanana.UIConfig
 
 object GameBananaApi {
 
-    val BASE_URL = "https://gamebanana.com/apiv11"
+    enum class Sort(val qp: String) {
+        MostLiked("MostLiked"),
+        MostDownloaded("MostDownloaded"),
+        MostViewed("MostViewed"),
+    }
 
+    private const val BASE_URL = "https://gamebanana.com/apiv11"
 
     suspend fun categories(id: Int): List<CategoryListResponseItem> {
         val url = "$BASE_URL/Mod/Categories?_idCategoryRow=$id&_sSort=a_to_z&_bShowEmpty=true"
         return GET(url)
     }
 
-    suspend fun categoryContent(id: Int, perPage: Int = 15, page: Int = 1): CategoryContentResponse {
-        val url = "$BASE_URL/Mod/Index?_nPerpage=$perPage&_aFilters[Generic_Category]=$id&_nPage=$page"
+    suspend fun categoryContent(
+        id: Int,
+        perPage: Int = 15,
+        page: Int = 1,
+        sort: Sort? = null,
+    ): CategoryContentResponse {
+        val sortQuery = if (sort == null) "" else "&_sSort=${sort.name}"
+        val url = "$BASE_URL/Mod/Index?_nPerpage=$perPage&_aFilters[Generic_Category]=$id&_nPage=$page$sortQuery"
         return GET(url)
     }
 

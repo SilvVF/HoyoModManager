@@ -47,8 +47,4 @@ object ZZZApi: DataApi {
                 .getOrNull()
          }
     }
-
-    override suspend fun topSubmissions() {
-        TODO("Not yet implemented")
-    }
 }

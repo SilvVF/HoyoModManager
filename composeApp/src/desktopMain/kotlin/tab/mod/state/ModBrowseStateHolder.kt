@@ -1,5 +1,6 @@
 package tab.mod.state
 
+import androidx.compose.runtime.snapshotFlow
 import core.api.DataApi
 import core.api.GameBananaApi
 import kotlinx.coroutines.CoroutineScope
@@ -62,6 +63,11 @@ class ModBrowseStateHolder(
     init {
         scope.launch {
             initialize()
+
+            snapshotFlow { dataApi.game }.collect {
+                _state.value = Loading(GB_CAT_URL + categoryId)
+                initialize()
+            }
         }
     }
 

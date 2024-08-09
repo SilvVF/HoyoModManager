@@ -25,10 +25,6 @@ object GenshinApi: DataApi {
             .filterNotNull()
     }
 
-    override suspend fun topSubmissions() {
-        TODO("Not yet implemented")
-    }
-
     override val elements = listOf("Anemo", "Cryo", "Dendro", "Electro", "Geo", "Hydro", "Pyro")
 
     override suspend fun elementList(): List<String> {

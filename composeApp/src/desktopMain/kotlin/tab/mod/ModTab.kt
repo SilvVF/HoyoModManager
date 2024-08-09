@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.ClickableText
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.FavoriteBorder
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
@@ -52,6 +53,7 @@ import core.api.StarRailApi
 import core.api.ZZZApi
 import core.db.Prefs
 import core.db.prefs.getBlocking
+import core.model.Game
 import core.model.Game.Genshin
 import core.model.Game.StarRail
 import core.model.Game.ZZZ
@@ -161,21 +163,26 @@ class ModTabStateHolder(
         }
     }
 
-    val segments by derivedStateOf {
-        when (val screen = navigator.lastItemOrNull) {
-            null -> emptyList()
-            is ModBrowse -> listOf(
-                dataApi.game.name to gameTab(),
-                "Mods" to null,
-                "Skins" to null
-            )
-            is ModView -> listOf(
-                dataApi.game.name to gameTab(),
-                "Mods" to null,
-                "Skins" to ModBrowse(dataApi.skinCategoryId),
-                "${screen.idRow}" to null
-            )
-            else -> emptyList()
+    val categoryIds = setOf(GenshinApi, StarRailApi, ZZZApi).map { it.skinCategoryId }
+
+    val segments: List<Pair<String, Screen?>> by derivedStateOf {
+        buildList {
+            add(dataApi.game.name to gameTab())
+            add("Mods" to null)
+            navigator.items.forEach { screen ->
+                when (val s = screen) {
+                    is ModBrowse -> {
+                        if (categoryIds.contains(s.categoryId)) {
+                            add("Skins" to s)
+                        } else {
+                            add("${s.name}" to s)
+                        }
+                    }
+                    is ModView -> {
+                        add("${s.idRow}" to null)
+                    }
+                }
+            }
         }
     }
 }
@@ -200,9 +207,11 @@ private fun ModTabContent(navigator: Navigator) {
                         val primaryColor = MaterialTheme.colorScheme.primary
 
                         stateHolder.segments.fastForEachIndexed { i, (path, screen) ->
+
                             val interactionSource = remember { MutableInteractionSource() }
                             val isLastIndex = stateHolder.segments.lastIndex == i
                             var active by remember { mutableStateOf(false) }
+
                             Text(
                                 text = path,
                                 color = if (isLastIndex) MaterialTheme.colorScheme.primary else LocalContentColor.current,
@@ -216,9 +225,7 @@ private fun ModTabContent(navigator: Navigator) {
                                             navigator.popUntilRoot()
                                             tabNavigator.current = screen
                                         }
-                                        else -> navigator.popUntil { it == screen }.run {
-                                            if (!this) navigator.push(screen)
-                                        }
+                                        else -> navigator.popUntil { it.key == screen.key }
                                     }
                                 }
                                     .onPointerEvent(PointerEventType.Enter) { active = true }
@@ -242,6 +249,28 @@ private fun ModTabContent(navigator: Navigator) {
                                     )
                                 )
                             }
+                        }
+                    }
+                },
+                actions = {
+                    Row {
+                        Game.entries.fastForEach {
+                            FilterChip(
+                                label ={ Text(it.name) },
+                                onClick = {
+                                    stateHolder.game = it
+                                    navigator.replaceAll(
+                                        ModBrowse(
+                                            when (it) {
+                                                Genshin -> GenshinApi.skinCategoryId
+                                                StarRail -> StarRailApi.skinCategoryId
+                                                ZZZ -> ZZZApi.skinCategoryId
+                                            }
+                                        )
+                                    )
+                                },
+                                selected = stateHolder.game == it
+                            )
                         }
                     }
                 },
