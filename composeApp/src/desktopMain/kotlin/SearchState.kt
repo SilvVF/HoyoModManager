@@ -6,7 +6,9 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.text.input.TextFieldValue
 import cafe.adriel.voyager.core.screen.Screen
+import com.eygraber.uri.Url
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
@@ -21,6 +23,7 @@ import kotlinx.coroutines.supervisorScope
 import lib.voyager.Tab
 import lib.voyager.TabNavigator
 import tab.SearchableTab
+import tab.mod.ModTab
 
 data class SearchResult(
     val tab: Tab,
@@ -144,6 +147,21 @@ class SearchState(
 
     fun update(string: String) {
         query = query.copy(text = string)
+    }
+
+    fun onSearch(string: String) {
+        update(string)
+
+        val (query, tags) = splitTagsAndQuery(string)
+
+        val url = Url.parseOrNull(query)
+        if (url != null) {
+            runCatching {
+                CoroutineScope(Dispatchers.Default).launch {
+                    ModTab.trySearch(url, navigator)
+                }
+            }
+        }
     }
 
     companion object {

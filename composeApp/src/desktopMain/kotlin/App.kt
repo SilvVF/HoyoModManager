@@ -14,6 +14,7 @@ import androidx.compose.material.Divider
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.KeyboardArrowDown
 import androidx.compose.material.icons.outlined.Refresh
+import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ElevatedAssistChip
 import androidx.compose.material3.ElevatedFilterChip
@@ -145,9 +146,15 @@ fun App() {
                                     Modifier.wrapContentHeight()
                                 ) {
                                     SearchBar(
+                                        leadingIcon = {
+                                            Icon(
+                                                imageVector = Icons.Outlined.Search,
+                                                contentDescription = null
+                                            )
+                                        },
                                         query = searchState.query.text,
                                         onQueryChange =  { searchState.update(it) },
-                                        onSearch = { searchState.update(it) },
+                                        onSearch = { searchState.onSearch(it) },
                                         onActiveChange = {},
                                         active = false,
                                         modifier = Modifier.fillMaxWidth(0.8f)

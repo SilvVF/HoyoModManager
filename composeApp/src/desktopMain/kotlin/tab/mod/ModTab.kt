@@ -23,6 +23,8 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.derivedStateOf
@@ -61,7 +63,11 @@ import core.model.Game
 import core.model.Game.Genshin
 import core.model.Game.StarRail
 import core.model.Game.ZZZ
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.runBlocking
 import lib.voyager.LocalTabNavigator
 import lib.voyager.Tab
 import lib.voyager.TabNavigator
@@ -77,8 +83,7 @@ import ui.LocalDataApi
 
 data object ModTab: Tab, ComposeReselectTab by ReselectTab.compose(), SearchableTab {
 
-    @Transient
-    var nestedNavigator: Navigator? = null
+    private val navChannel = Channel<List<Screen>>(1)
 
     private val defaultRecommendedUrls = listOf(
         SearchResult(
@@ -116,31 +121,59 @@ data object ModTab: Tab, ComposeReselectTab by ReselectTab.compose(), Searchable
         return defaultRecommendedUrls
     }
 
+    suspend fun trySearch(url: Url, tabNavigator: TabNavigator)  {
+
+        if (url.host != "gamebanana.com") return
+
+        val path = url.path.orEmpty().removePrefix("/")
+
+        println("matched host")
+
+        when  {
+            Regex("^mods\\/cats\\/\\d+\$").matches(path) -> {
+
+                val skinCats =  Game.entries.map { it.api().skinCategoryId }
+                val category = url.pathSegments.last().toInt()
+
+                if (skinCats.contains(category)) {
+                    tabNavigator.current = this
+                    delay(10)
+                    navChannel.trySend(listOf(ModBrowse(category)))
+                }
+            }
+        }
+    }
+
     override fun onResultSelected(result: SearchResult, navigator: TabNavigator) {
         navigator.current = this
 
-        val route = result.route
-        val nav = nestedNavigator
-
-        if (route != null && nav != null) {
-            with(nav) {
-                replaceAll(items.filterNot { screen -> screen == route } + route)
-            }
-        }
+        result.route?.let { navChannel.trySend(listOf(it)) }
     }
 
 
     @Composable
     override fun Content() {
-        Navigator(ModBrowse(GenshinApi.skinCategoryId)) { navigator ->
 
-            nestedNavigator = navigator
+        val scope = rememberCoroutineScope()
+
+        Navigator(ModBrowse(GenshinApi.skinCategoryId)) { navigator ->
+            LaunchedEffect(navChannel) {
+                try {
+                    for (items in navChannel) {
+                        navigator.replaceAll(items)
+                    }
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) { println(e.stackTraceToString()) }
+            }
+
+            val stateHolder = remember(navigator, scope) { ModTabStateHolder(scope, navigator) }
 
             LaunchedOnReselect {
                 navigator.popUntilRoot()
             }
 
-            ModTabContent(navigator)
+            ModTabContent(navigator, stateHolder)
         }
     }
 }
@@ -150,7 +183,11 @@ class ModTabStateHolder(
     private val navigator: Navigator,
 ) {
 
-    var game by mutableStateOf(Prefs.lastModScreen().getBlocking())
+    val game by derivedStateOf {
+        Game.entries.first {
+            it.api().skinCategoryId == (navigator.items.firstOrNull() as? ModBrowse)?.categoryId
+        }
+    }
 
     val dataApi by derivedStateOf { game.api() }
 
@@ -190,11 +227,9 @@ class ModTabStateHolder(
 val LocalSortMode = compositionLocalOf<MutableState<GameBananaApi.Sort?>> { error("Not provided") }
 
 @Composable
-private fun ModTabContent(navigator: Navigator) {
+private fun ModTabContent(navigator: Navigator, stateHolder: ModTabStateHolder) {
 
     val tabNavigator = LocalTabNavigator.current
-    val scope = rememberCoroutineScope()
-    val stateHolder = remember(navigator, scope) { ModTabStateHolder(scope, navigator) }
     val sortMode = remember { mutableStateOf<GameBananaApi.Sort?>(null) }
 
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
@@ -316,7 +351,6 @@ private fun ModTopAppBar(
                     FilterChip(
                         label = { Text(it.name) },
                         onClick = {
-                            stateHolder.game = it
                             navigator.replaceAll(
                                 ModBrowse(it.api().skinCategoryId)
                             )
