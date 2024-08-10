@@ -1,3 +1,4 @@
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -39,6 +40,8 @@ class SearchState(
 
     var query by mutableStateOf(TextFieldValue(""))
 
+    val parsedQuery by derivedStateOf { splitTagsAndQuery(query.text) }
+
     private val _autocomplete = MutableStateFlow(emptyList<String>())
     private val _results = MutableStateFlow(emptyList<SearchResult>())
 
@@ -70,6 +73,27 @@ class SearchState(
             }
             .catch { println(it.stackTraceToString()) }
             .launchIn(scope)
+    }
+
+    private fun splitTagsAndQuery(raw: String): Pair<String, Set<String>> {
+        val lastTagIdx = raw.lastIndexOf(':')
+        val query = raw.slice(
+            lastTagIdx.coerceAtLeast(0)..raw.lastIndex
+        )
+            .removePrefix(":")
+            .trim()
+
+        val tags = if(lastTagIdx == -1) {
+            emptySet()
+        } else {
+            raw.removeSuffix(query)
+                .split(':')
+                .map(::removeWhitespace)
+                .map(::toLower)
+                .filter(TAGS::contains)
+                .toSet()
+        }
+        return query to tags
     }
 
     private suspend fun createSuggestions(query: String, results: List<SearchResult>) {
@@ -107,24 +131,7 @@ class SearchState(
 
     private suspend fun getOtherResults(raw: String, currentTab: Tab): List<SearchResult> {
 
-        val lastTagIdx = raw.lastIndexOf(':')
-        val query = raw.slice(
-            lastTagIdx.coerceAtLeast(0)..raw.lastIndex
-        )
-            .removePrefix(":")
-            .trim()
-
-        val tags = if(lastTagIdx == -1) {
-            emptySet()
-        } else {
-            println("=======")
-            raw.removeSuffix(query)
-                .split(':')
-                .map(::removeWhitespace)
-                .map(::toLower)
-                .filter(TAGS::contains)
-                .toSet()
-        }
+        val (query, tags) = splitTagsAndQuery(raw)
 
         return TABS_LIST.mapNotNull { tab ->
             runCatching {

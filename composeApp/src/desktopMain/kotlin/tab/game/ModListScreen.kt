@@ -1,8 +1,12 @@
-package tab.mod.components
+package tab.game
 
 import Sync
 import GenerateButton
+import LocalSearchState
 import LocalSnackBarHostState
+import SearchState.Companion.CHARACTER_TAG
+import SearchState.Companion.MOD_TAG
+import SearchState.Companion.TAG_TAG
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -53,6 +57,7 @@ import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
@@ -81,6 +86,7 @@ fun GameModListScreen(
     val dataApi = LocalDataApi.current
     val database = LocalDatabase.current
     val scope = rememberCoroutineScope()
+    val searchState = LocalSearchState.current
     val syncTrigger = remember { Channel<Sync.Request>() }
     val filters = remember { mutableStateListOf<String>() }
     val snackbarHostState = LocalSnackBarHostState.current
@@ -91,7 +97,14 @@ fun GameModListScreen(
         filters.clear()
 
         withContext(Dispatchers.IO) {
-            database.observeByGameWithMods(dataApi.game).map { items ->
+            snapshotFlow { searchState.parsedQuery }.flatMapLatest { (query, tags) ->
+                database.observeByGameWithMods(
+                    dataApi.game,
+                    modFileName = query.takeIf { tags.contains(MOD_TAG) || tags.isEmpty() && query.isNotEmpty() },
+                    characterName = query.takeIf { tags.contains(CHARACTER_TAG) || tags.isEmpty() && query.isNotEmpty() },
+                    tagName = query.takeIf { tags.contains(TAG_TAG) || tags.isEmpty() && query.isNotEmpty() }
+                )
+            }.map { items ->
                 items.map { (character, modsWithTags) ->
                     CharacterWithModsAndTags(
                         character,

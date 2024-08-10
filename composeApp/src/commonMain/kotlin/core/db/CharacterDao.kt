@@ -75,9 +75,14 @@ interface CharacterDao {
             mod m ON m.character_id = c.id
         LEFT JOIN 
             tag t ON t.mod_id = m.id
-        WHERE c.game = :game
+        WHERE c.game = :game 
+        AND ((
+            m.file_name LIKE '%' || :modFileName || '%'
+            OR c.name LIKE '%' || :characterName || '%'
+            OR t.name LIKE '%' || :tagName || '%'
+        ) OR (:modFileName is NULL AND :characterName is NULL AND :tagName is NULL ))
         ORDER BY 
             c.name, m.file_name, t.name
     """)
-    fun observeByGameWithMods(game: Game): Flow<Map<Character, Map<Mod, List<Tag>>>>
+    fun observeByGameWithMods(game: Game, modFileName: String?, characterName: String?, tagName: String?): Flow<Map<Character, Map<Mod, List<Tag>>>>
 }
