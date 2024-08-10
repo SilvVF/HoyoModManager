@@ -1,6 +1,6 @@
 package tab.mod.state
 
-import CharacterSync
+import Sync
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -94,7 +94,7 @@ class ModDownloadStateHolder(
         val inputStream = res.bodyAsChannel().toInputStream()
 
         val outputPath = Paths.get(
-            CharacterSync.rootDir.path,
+            Sync.rootDir.path,
             dataApi.game.name,
             character.name,
             file.sFile.removeSuffix(".$ext")

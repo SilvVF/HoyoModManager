@@ -13,16 +13,40 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import java.io.File
 
-object CharacterSync {
+object Sync {
 
-    val database = AppDatabase.instance
+    sealed interface Request {
+        data object Startup: Request
+        data class UserInitiated(val network: Boolean): Request
+    }
 
-    val running = mutableMapOf<Game, Job>()
-    val initialSyncDone = mutableSetOf<Game>()
+    private val database = AppDatabase.instance
+
+    private val running = mutableMapOf<Game, Job>()
+    private val initialSyncDone = mutableSetOf<Game>()
 
     val rootDir = File(OS.getDataDir(), "mods")
 
-    fun sync(
+    fun sync(dataApi: DataApi, request: Request): Job? {
+        val initialAlreadyComplete =  request is Request.Startup && initialSyncDone.contains(dataApi.game)
+        return when {
+            initialAlreadyComplete -> null
+            running[dataApi.game]?.isActive == true -> running[dataApi.game]
+            else -> internalSync(
+                dataApi,
+                when (request) {
+                    Request.Startup -> false
+                    is Request.UserInitiated -> true
+                }
+            )
+                .also { job ->
+                    running[dataApi.game] = job
+                    job.invokeOnCompletion { running.remove(dataApi.game) }
+                }
+        }
+    }
+
+    private fun internalSync(
         dataApi: DataApi,
         fromNetwork: Boolean = false,
     ): Job = GlobalScope.launch(Dispatchers.IO) {
@@ -60,6 +84,7 @@ object CharacterSync {
                     Genshin -> Prefs.genshinDir()
                     StarRail -> Prefs.starRailDir()
                     ZZZ -> Prefs.zenlessDir()
+                    Game.Wuwa -> Prefs.wuwaDir()
                 }.get()
                 File(path).listFiles()?.toList() ?: emptyList()
             }

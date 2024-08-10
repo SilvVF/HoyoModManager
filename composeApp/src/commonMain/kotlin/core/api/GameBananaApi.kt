@@ -27,8 +27,8 @@ object GameBananaApi {
         page: Int = 1,
         sort: Sort? = null,
     ): CategoryContentResponse {
-        val sortQuery = if (sort == null) "" else "&_sSort=${sort.name}"
-        val url = "$BASE_URL/Mod/Index?_nPerpage=$perPage&_aFilters[Generic_Category]=$id&_nPage=$page$sortQuery"
+        val sortQuery = if (sort == null) "" else "&_sSort=Generic_${sort.qp}"
+        val url = "$BASE_URL/Mod/Index?_nPerpage=$perPage&_aFilters[Generic_Category]=$id$sortQuery&_nPage=$page"
         return GET(url)
     }
 

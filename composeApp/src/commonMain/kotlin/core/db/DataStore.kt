@@ -40,6 +40,8 @@ object Prefs {
 
     fun zenlessDir() = store.getString("${APP_PREF}zenless_dir")
 
+    fun wuwaDir() = store.getString("${APP_PREF}wuwa_dir")
+
     fun ignoreOnGeneration() = store.getStringSet("${APP_PREF}ignore_on_generation")
 
     fun lastModScreen() = store.getEnum("${APP_PREF}last_mod_screen", Game.Genshin)

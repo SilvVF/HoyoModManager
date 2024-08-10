@@ -7,21 +7,19 @@ import io.ktor.client.statement.bodyAsText
 import net.NetHelper
 import org.jsoup.Jsoup
 
-object ZZZApi: DataApi {
+object WuwaApi: DataApi {
 
-    override val skinCategoryId: Int = 30305
+    override val skinCategoryId: Int = 29524
+    override val game: Game = Game.Wuwa
+    override val elements: List<String> = listOf("Aero", "Electro", "Fusion", "Glacio", "Havoc", "Spectro")
 
     private const val BASE_URL = "https://www.prydwen.gg"
-
-    override val game: Game = Game.ZZZ
-
-    override val elements: List<String> = listOf("Electric", "Ether", "Fire", "Ice", "Physical")
 
     override suspend fun elementList(): List<String> = elements
 
     override suspend fun characterList(): List<Character> {
         val doc = Jsoup.parse(
-            NetHelper.client.get("$BASE_URL/zenless/characters").bodyAsText()
+            NetHelper.client.get("${BASE_URL}/wuthering-waves/characters/").bodyAsText()
         )
 
         return doc.getElementsByClass("avatar-card").mapNotNull { element ->
@@ -32,12 +30,17 @@ object ZZZApi: DataApi {
                     .first()
                     .attr("data-src")
 
-                val type = element.getElementsByClass("element").firstNotNullOf { element ->
-                    element.select("picture img").firstNotNullOf { img -> img.attr("alt") }
-                }
+                val type = element.getElementsByClass("gatsby-image-wrapper")
+                    .takeIf { it.size > 1 }
+                    ?.last()
+                    ?.select("img[data-main-image]")
+                    ?.first()
+                    ?.attr("alt")
+                    .orEmpty()
+
                 Character(
                     id = name.hashCode(),
-                    game = Game.ZZZ,
+                    game = Game.Wuwa,
                     name = name,
                     avatarUrl = BASE_URL + iconUrl,
                     element = type
@@ -45,6 +48,6 @@ object ZZZApi: DataApi {
             }
 
                 .getOrNull()
-         }
+        }
     }
 }

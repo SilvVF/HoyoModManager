@@ -11,12 +11,11 @@ import androidx.compose.ui.Modifier
 import cafe.adriel.voyager.core.screen.ScreenKey
 import core.api.GenshinApi
 import core.api.StarRailApi
+import core.api.WuwaApi
 import core.api.ZZZApi
 import core.db.AppDatabase
 import core.model.Game
-import core.model.Game.Genshin
-import core.model.Game.StarRail
-import core.model.Game.ZZZ
+import core.model.Game.*
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.supervisorScope
@@ -94,13 +93,7 @@ interface GameTab: Tab, SearchableTab {
     @Composable
     override fun Content() {
         CompositionLocalProvider(
-            LocalDataApi provides remember(game) {
-                when(game) {
-                    Genshin -> GenshinApi
-                    StarRail -> StarRailApi
-                    ZZZ -> ZZZApi
-                }
-            }
+            LocalDataApi provides remember(game) { game.api() }
         ) {
             GameModListScreen(Modifier.fillMaxSize())
         }

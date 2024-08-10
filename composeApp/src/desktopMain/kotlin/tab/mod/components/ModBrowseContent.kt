@@ -55,6 +55,8 @@ import androidx.compose.ui.util.fastForEach
 import com.seiko.imageloader.ui.AutoSizeImage
 import fromHex
 import net.model.gamebanana.CategoryContentResponse
+import plus
+import tab.mod.LocalSortMode
 import tab.mod.state.BrowseState.Failure
 import tab.mod.state.BrowseState.Loading
 import tab.mod.state.BrowseState.Success
@@ -72,9 +74,10 @@ fun ModBrowseContent(
 
     val scope = rememberCoroutineScope()
     val dataApi = LocalDataApi.current
+    val sort by LocalSortMode.current
 
-    val stateHolder = remember(dataApi) {
-        ModBrowseStateHolder(dataApi, categoryId, scope)
+    val stateHolder = remember(dataApi, sort) {
+        ModBrowseStateHolder(dataApi, categoryId, sort, scope)
     }
 
     Scaffold { paddingValues ->
@@ -208,11 +211,10 @@ private fun PageContent(
             Box(modifier.fillMaxSize()) {
                 LazyVerticalGrid(
                     state = gridState,
-                    contentPadding = paddingValues,
+                    contentPadding = paddingValues + PaddingValues(horizontal = 82.dp),
                     columns = GridCells.Adaptive(280.dp),
                     modifier = Modifier
-                        .fillMaxHeight()
-                        .fillMaxWidth(0.8f)
+                        .fillMaxSize()
                         .align(Alignment.Center)
                 ) {
                     items(data.data) { submission ->

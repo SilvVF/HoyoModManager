@@ -3,6 +3,7 @@ package tab.mod.state
 import androidx.compose.runtime.snapshotFlow
 import core.api.DataApi
 import core.api.GameBananaApi
+import core.model.Game
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -49,6 +50,7 @@ sealed class BrowseState(
 class ModBrowseStateHolder(
     private val dataApi: DataApi,
     private val categoryId: Int,
+    private val sort: GameBananaApi.Sort?,
     private val scope: CoroutineScope,
 ) {
     private fun MutableStateFlow<BrowseState>.updateSuccess(block: (Success) -> Success) {
@@ -77,13 +79,18 @@ class ModBrowseStateHolder(
         }
     }
 
+    private val categoryApiCall: suspend (sort: GameBananaApi.Sort?, page: Int) -> CategoryContentResponse = { sort, page ->
+        GameBananaApi.categoryContent(
+            id = categoryId,
+            perPage = PER_PAGE,
+            page = page,
+            sort = sort
+        )
+    }
+
     private suspend fun initialize() {
         val res = try {
-            GameBananaApi.categoryContent(
-                id = categoryId,
-                perPage = PER_PAGE,
-                page = 1
-            )
+            categoryApiCall(sort, 1)
         } catch (e: Exception) {
             print(e.stackTraceToString())
             _state.update { Failure(it.gbUrl) }
@@ -95,7 +102,7 @@ class ModBrowseStateHolder(
                 page = 1,
                 gbUrl = it.gbUrl,
                 uiConfig = GameBananaApi.uiConfig(categoryId),
-                pageCount = res.aMetadata.nRecordCount / res.aMetadata.nPerpage,
+                pageCount = res.aMetadata?.let{ it.nRecordCount / it.nPerpage } ?: 1,
                 mods = mapOf(1 to PageLoadState.Success(res.aRecords)),
                 subCategories = GameBananaApi.categories(dataApi.skinCategoryId)
             )
@@ -118,11 +125,7 @@ class ModBrowseStateHolder(
             }
 
             val res = runCatching {
-                GameBananaApi.categoryContent(
-                    id = dataApi.skinCategoryId,
-                    perPage = PER_PAGE,
-                    page = page
-                )
+                categoryApiCall(sort, page)
             }
 
             _state.updateSuccess { state ->

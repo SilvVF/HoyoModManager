@@ -20,8 +20,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -48,6 +51,7 @@ import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.Navigator
 import cafe.adriel.voyager.transitions.FadeTransition
 import com.eygraber.uri.Url
+import core.api.GameBananaApi
 import core.api.GenshinApi
 import core.api.StarRailApi
 import core.api.ZZZApi
@@ -67,6 +71,7 @@ import tab.ReselectTab
 import tab.SearchableTab
 import tab.game.GenshinTab
 import tab.game.StarRailTab
+import tab.game.WutheringWavesTab
 import tab.game.ZenlessZoneZeroTab
 import ui.LocalDataApi
 
@@ -147,23 +152,18 @@ class ModTabStateHolder(
 
     var game by mutableStateOf(Prefs.lastModScreen().getBlocking())
 
-    val dataApi by derivedStateOf {
-        when(game) {
-            Genshin -> GenshinApi
-            StarRail -> StarRailApi
-            ZZZ -> ZZZApi
-        }
-    }
+    val dataApi by derivedStateOf { game.api() }
 
     val gameTab = {
         when(game) {
             Genshin -> GenshinTab
             StarRail -> StarRailTab
             ZZZ -> ZenlessZoneZeroTab
+            Game.Wuwa -> WutheringWavesTab
         }
     }
 
-    val categoryIds = setOf(GenshinApi, StarRailApi, ZZZApi).map { it.skinCategoryId }
+    private val categoryIds = Game.entries.map { it.api().skinCategoryId }
 
     val segments: List<Pair<String, Screen?>> by derivedStateOf {
         buildList {
@@ -187,107 +187,147 @@ class ModTabStateHolder(
     }
 }
 
+val LocalSortMode = compositionLocalOf<MutableState<GameBananaApi.Sort?>> { error("Not provided") }
+
 @Composable
 private fun ModTabContent(navigator: Navigator) {
 
     val tabNavigator = LocalTabNavigator.current
     val scope = rememberCoroutineScope()
     val stateHolder = remember(navigator, scope) { ModTabStateHolder(scope, navigator) }
+    val sortMode = remember { mutableStateOf<GameBananaApi.Sort?>(null) }
 
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
 
-    Scaffold(
-        topBar = {
-            LargeTopAppBar(
-                title = {
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(2.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        val primaryColor = MaterialTheme.colorScheme.primary
-
-                        stateHolder.segments.fastForEachIndexed { i, (path, screen) ->
-
-                            val interactionSource = remember { MutableInteractionSource() }
-                            val isLastIndex = stateHolder.segments.lastIndex == i
-                            var active by remember { mutableStateOf(false) }
-
-                            Text(
-                                text = path,
-                                color = if (isLastIndex) MaterialTheme.colorScheme.primary else LocalContentColor.current,
-                                modifier = Modifier.clickable(
-                                    interactionSource = interactionSource,
-                                    indication = null
-                                ) {
-                                    when (screen) {
-                                        null -> Unit
-                                        is Tab -> {
-                                            navigator.popUntilRoot()
-                                            tabNavigator.current = screen
-                                        }
-                                        else -> navigator.popUntil { it.key == screen.key }
-                                    }
-                                }
-                                    .onPointerEvent(PointerEventType.Enter) { active = true }
-                                    .onPointerEvent(PointerEventType.Exit) { active = false }
-                                    .drawBehind {
-                                        if (active) {
-                                            drawRoundRect(
-                                                color = primaryColor,
-                                                cornerRadius = CornerRadius(12f),
-                                                size = Size(this.size.width, 4.dp.toPx()),
-                                                topLeft = Offset(x = 0f, y = this.size.height)
-                                            )
-                                        }
-                                    }
-                            )
-                            if (!isLastIndex) {
-                                Text(
-                                    text = ">",
-                                    style = MaterialTheme.typography.displayMedium.copy(
-                                        LocalContentColor.current.copy(alpha = 0.78f)
-                                    )
-                                )
-                            }
-                        }
-                    }
-                },
-                actions = {
-                    Row {
-                        Game.entries.fastForEach {
-                            FilterChip(
-                                label ={ Text(it.name) },
-                                onClick = {
-                                    stateHolder.game = it
-                                    navigator.replaceAll(
-                                        ModBrowse(
-                                            when (it) {
-                                                Genshin -> GenshinApi.skinCategoryId
-                                                StarRail -> StarRailApi.skinCategoryId
-                                                ZZZ -> ZZZApi.skinCategoryId
-                                            }
-                                        )
-                                    )
-                                },
-                                selected = stateHolder.game == it
-                            )
-                        }
-                    }
-                },
-                scrollBehavior = scrollBehavior,
-            )
-        },
-        modifier = Modifier
-            .fillMaxSize()
-            .nestedScroll(scrollBehavior.nestedScrollConnection)
-    ) { paddingValues ->
-        Box(Modifier.padding(paddingValues)) {
-            CompositionLocalProvider(
-                LocalDataApi provides stateHolder.dataApi
-            ) {
+    CompositionLocalProvider(
+        LocalDataApi provides stateHolder.dataApi,
+        LocalSortMode provides sortMode
+    ) {
+        Scaffold(
+            topBar = {
+                ModTopAppBar(
+                    navigator,
+                    tabNavigator,
+                    stateHolder,
+                    scrollBehavior
+                )
+            },
+            modifier = Modifier
+                .fillMaxSize()
+                .nestedScroll(scrollBehavior.nestedScrollConnection)
+        ) { paddingValues ->
+            Box(Modifier.padding(paddingValues)) {
                 FadeTransition(navigator)
             }
         }
     }
 }
 
+@Composable
+private fun ModTopAppBar(
+    navigator: Navigator,
+    tabNavigator: TabNavigator,
+    stateHolder: ModTabStateHolder,
+    scrollBehavior: TopAppBarScrollBehavior,
+    modifier: Modifier = Modifier
+) {
+    LargeTopAppBar(
+        title = {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(2.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                val primaryColor = MaterialTheme.colorScheme.primary
+
+                stateHolder.segments.fastForEachIndexed { i, (path, screen) ->
+
+                    val interactionSource = remember { MutableInteractionSource() }
+                    val isLastIndex = stateHolder.segments.lastIndex == i
+                    var active by remember { mutableStateOf(false) }
+
+                    Text(
+                        text = path,
+                        color = if (isLastIndex) MaterialTheme.colorScheme.primary else LocalContentColor.current,
+                        modifier = Modifier.clickable(
+                            interactionSource = interactionSource,
+                            indication = null
+                        ) {
+                            when (screen) {
+                                null -> Unit
+                                is Tab -> {
+                                    navigator.popUntilRoot()
+                                    tabNavigator.current = screen
+                                }
+                                else -> navigator.popUntil { it.key == screen.key }
+                            }
+                        }
+                            .onPointerEvent(PointerEventType.Enter) { active = true }
+                            .onPointerEvent(PointerEventType.Exit) { active = false }
+                            .drawBehind {
+                                if (active) {
+                                    drawRoundRect(
+                                        color = primaryColor,
+                                        cornerRadius = CornerRadius(12f),
+                                        size = Size(this.size.width, 4.dp.toPx()),
+                                        topLeft = Offset(x = 0f, y = this.size.height)
+                                    )
+                                }
+                            }
+                    )
+                    if (!isLastIndex) {
+                        Text(
+                            text = ">",
+                            style = MaterialTheme.typography.displayMedium.copy(
+                                LocalContentColor.current.copy(alpha = 0.78f)
+                            )
+                        )
+                    }
+                }
+            }
+        },
+        actions = {
+            var sortMode by LocalSortMode.current
+            Row {
+                GameBananaApi.Sort.entries.fastForEach {
+                    val text = remember {
+                        buildString {
+                            for((i, c) in it.name.withIndex()) {
+                                if (i == 0){
+                                    append(c)
+                                    continue
+                                }
+                                if (c.isUpperCase()) append(' ')
+                                append(c)
+                            }
+                        }
+                    }
+                    FilterChip(
+                        selected = it == sortMode,
+                        onClick = { sortMode = it },
+                        label = { Text(text) },
+                        modifier = Modifier.padding(2.dp)
+                    )
+                }
+            }
+        },
+        navigationIcon = {
+            Row {
+                Game.entries.fastForEach {
+                    FilterChip(
+                        label = { Text(it.name) },
+                        onClick = {
+                            stateHolder.game = it
+                            navigator.replaceAll(
+                                ModBrowse(it.api().skinCategoryId)
+                            )
+                        },
+                        selected = stateHolder.game == it,
+                        modifier = Modifier.padding(2.dp)
+                    )
+                }
+            }
+        },
+        scrollBehavior = scrollBehavior,
+        modifier = modifier
+    )
+}

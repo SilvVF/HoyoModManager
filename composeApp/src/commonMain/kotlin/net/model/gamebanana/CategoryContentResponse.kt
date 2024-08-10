@@ -7,9 +7,9 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class CategoryContentResponse(
     @SerialName("_aMetadata")
-    val aMetadata: AMetadata,
+    val aMetadata: AMetadata? = null,
     @SerialName("_aRecords")
-    val aRecords: List<ARecord>
+    val aRecords: List<ARecord> = emptyList()
 ) {
     @Serializable
     data class AMetadata(

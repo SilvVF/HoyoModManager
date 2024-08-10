@@ -30,6 +30,7 @@ import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -54,6 +55,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.util.fastForEach
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
@@ -85,7 +87,7 @@ fun PlaylistScreen(
     modifier: Modifier = Modifier
 ) {
     val scope = rememberCoroutineScope()
-    val game by remember { mutableStateOf(Game.Genshin) }
+    var game by remember { mutableStateOf(Game.Genshin) }
     var currentDialog by remember { mutableStateOf<PlaylistDialog?>(null) }
     val database = LocalDatabase.current
 
@@ -118,6 +120,23 @@ fun PlaylistScreen(
 
     Scaffold(
         modifier = modifier,
+        topBar = {
+            androidx.compose.material3.TopAppBar(
+                title = { Text("Playlist") },
+                actions = {
+                    Row {
+                        Game.entries.fastForEach {
+                            FilterChip(
+                                selected = game == it,
+                                label = { Text(it.name) },
+                                onClick = { game = it },
+                                modifier = Modifier.padding(2.dp)
+                            )
+                        }
+                    }
+                }
+            )
+        },
         floatingActionButton = {
             Row {
                 ExtendedFloatingActionButton(

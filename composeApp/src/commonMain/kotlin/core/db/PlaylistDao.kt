@@ -38,8 +38,8 @@ interface PlaylistDao {
         LEFT JOIN 
             tag t ON m.id = t.mod_id
         WHERE p.game = :game
-        ORDER BY 
-            p.playlistId, m.id, t.name
+        ORDER BY
+            m.character, m.file_name
     """)
     fun subscribeToPlaylistsWithModsAndTags(game: Game): Flow<Map<Playlist, Map<Mod, List<Tag>>>>
 

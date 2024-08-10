@@ -1,9 +1,8 @@
 package tab.mod.components
 
-import CharacterSync
+import Sync
 import GenerateButton
 import LocalSnackBarHostState
-import SyncRequest
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -82,7 +81,7 @@ fun GameModListScreen(
     val dataApi = LocalDataApi.current
     val database = LocalDatabase.current
     val scope = rememberCoroutineScope()
-    val syncTrigger = remember { Channel<SyncRequest>() }
+    val syncTrigger = remember { Channel<Sync.Request>() }
     val filters = remember { mutableStateListOf<String>() }
     val snackbarHostState = LocalSnackBarHostState.current
     var modAvailableOnly by rememberSaveable { mutableStateOf(false) }
@@ -134,7 +133,7 @@ fun GameModListScreen(
                 toggleEnabledOnly = { modAvailableOnly = !modAvailableOnly },
                 modAvailableOnly = modAvailableOnly,
                 refresh = {
-                    syncTrigger.trySend(SyncRequest.UserInitiated(true))
+                    syncTrigger.trySend(Sync.Request.UserInitiated(true))
                 }
             )
         },
@@ -178,9 +177,9 @@ fun GameModListScreen(
                     scope.launch(NonCancellable + Dispatchers.IO) {
                         try {
                             val path = dataApi.game.toString() + File.separator + character.name + File.separator + file.name
-                            val modFile = File(CharacterSync.rootDir, path)
+                            val modFile = File(Sync.rootDir, path)
                             file.copyRecursively(modFile, overwrite = true)
-                            syncTrigger.send(SyncRequest.UserInitiated(false))
+                            syncTrigger.send(Sync.Request.UserInitiated(false))
                         } catch (e: Exception) {
                             e.printStackTrace()
                         }
@@ -193,30 +192,12 @@ fun GameModListScreen(
         }
     }
 
-    LaunchedEffect(dataApi) {
+    LaunchedEffect(Unit) {
         withContext(Dispatchers.IO) {
             syncTrigger.receiveAsFlow().collectLatest { req ->
                 supervisorScope {
-                    if (CharacterSync.running.contains(dataApi.game))
-                        return@supervisorScope
-
-                    val (fromNetwork, onComplete) = when (req) {
-                        SyncRequest.Startup -> false to {
-                            CharacterSync.running.remove(dataApi.game)
-                            CharacterSync.initialSyncDone.add(dataApi.game)
-                        }
-
-                        is SyncRequest.UserInitiated -> req.network to {
-                            CharacterSync.running.remove(dataApi.game)
-                        }
-                    }
-
-                    val job = CharacterSync.sync(dataApi, fromNetwork)
-                    CharacterSync.running[dataApi.game] = job
-
-                    runCatching { job.join() }
-
-                    onComplete()
+                    val job = Sync.sync(dataApi, req)
+                    job?.join()
                 }
             }
         }

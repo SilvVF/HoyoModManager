@@ -54,6 +54,7 @@ private suspend fun updateDir(path: String, game: Game) = AppDatabase.instance.q
         Genshin -> Prefs.genshinDir()
         StarRail -> Prefs.starRailDir()
         ZZZ -> Prefs.zenlessDir()
+        Wuwa -> Prefs.wuwaDir()
     }
 
     pref.set(path)
@@ -90,12 +91,14 @@ fun SettingsDialog(
             kotlinx.coroutines.flow.combine(
                 genshinDir().changes().onStart { emit(genshinDir().get()) },
                 zenlessDir().changes().onStart { emit(zenlessDir().get()) },
-                starRailDir().changes().onStart { emit(starRailDir().get()) }
-            ) { genshin, zenless, honkai ->
+                starRailDir().changes().onStart { emit(starRailDir().get()) },
+                wuwaDir().changes().onStart { emit(wuwaDir().get()) }
+            ) { genshin, zenless, honkai, wuwa ->
                 value = mapOf(
                     Genshin to genshin,
                     ZZZ to zenless,
-                    StarRail to honkai
+                    StarRail to honkai,
+                    Wuwa to wuwa
                 )
             }
                 .launchIn(this@produceState)

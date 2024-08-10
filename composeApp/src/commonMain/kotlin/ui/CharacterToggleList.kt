@@ -1,6 +1,6 @@
 package ui
 
-import CharacterSync
+import Sync
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.LocalScrollbarStyle
 import androidx.compose.foundation.VerticalScrollbar
@@ -394,7 +394,7 @@ private fun ModActionPopups(
                                         scope.launch(NonCancellable + Dispatchers.IO) {
                                             try {
                                                 val path = Paths.get(
-                                                    CharacterSync.rootDir.path,
+                                                    Sync.rootDir.path,
                                                     Game.fromByte(mod.game).name,
                                                     mod.character,
                                                     mod.fileName
@@ -428,7 +428,7 @@ private fun ModActionPopups(
                         onConfirm = {
                             scope.launch(NonCancellable + Dispatchers.IO) {
                                 val filePath = Paths.get(
-                                    CharacterSync.rootDir.path,
+                                    Sync.rootDir.path,
                                     dataApi.game.subPath,
                                     mod.character,
                                     mod.fileName

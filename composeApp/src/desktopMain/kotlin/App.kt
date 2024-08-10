@@ -1,8 +1,6 @@
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
@@ -42,15 +40,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
-import androidx.compose.ui.input.pointer.PointerEventType
-import androidx.compose.ui.input.pointer.onPointerEvent
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastForEach
 import core.api.DataApi
 import core.db.LocalDatabase
 import core.db.Prefs
+import core.model.Game
 import core.model.Game.Genshin
 import core.model.Game.StarRail
 import core.model.Game.ZZZ
@@ -66,6 +61,7 @@ import tab.ReselectTab
 import tab.SearchableTab
 import tab.game.GenshinTab
 import tab.game.StarRailTab
+import tab.game.WutheringWavesTab
 import tab.game.ZenlessZoneZeroTab
 import tab.mod.ModTab
 import tab.playlist.PlaylistTab
@@ -75,15 +71,12 @@ import java.io.File
 import java.nio.file.Paths
 
 
-sealed interface SyncRequest {
-    data object Startup: SyncRequest
-    data class UserInitiated(val network: Boolean): SyncRequest
-}
 
 val TABS_LIST = listOf(
     GenshinTab,
     StarRailTab,
     ZenlessZoneZeroTab,
+    WutheringWavesTab,
     PlaylistTab,
     ModTab
 )
@@ -101,8 +94,6 @@ fun App() {
 
             val scope = rememberCoroutineScope()
             val searchState = remember { SearchState(scope, navigator) }
-
-            var searchHovered by remember { mutableStateOf(false) }
 
             Row {
                 NavigationRail(
@@ -124,7 +115,21 @@ fun App() {
                                     navigator.current = tab
                                 }
                             },
-                            label = { Text(tab.toString()) },
+                            label = {
+                                val text = remember {
+                                    buildString {
+                                        for((i, c) in tab.toString().removeSuffix("Tab").withIndex()) {
+                                            if (i == 0){
+                                                append(c)
+                                                continue
+                                            }
+                                            if (c.isUpperCase()) append(' ')
+                                            append(c)
+                                        }
+                                    }
+                                }
+                                Text(text)
+                            },
                             icon = { tab.Icon() }
                         )
                     }
@@ -280,6 +285,7 @@ fun GenerateButton(
                     Genshin -> Prefs.genshinDir()
                     StarRail -> Prefs.starRailDir()
                     ZZZ -> Prefs.zenlessDir()
+                    Game.Wuwa -> Prefs.wuwaDir()
                 }.get()
             )
             val selected = database.selectEnabledForGame(dataApi.game.data)
@@ -308,7 +314,7 @@ fun GenerateButton(
 
             selected.forEach { mod ->
                 runCatching {
-                    val modFile = Paths.get(CharacterSync.rootDir.path, dataApi.game.name, mod.character, mod.fileName).toFile()
+                    val modFile = Paths.get(Sync.rootDir.path, dataApi.game.name, mod.character, mod.fileName).toFile()
 
                     modFile.copyRecursively(
                         File(exportDir, "${mod.id}_${mod.fileName}"), overwrite = copy
@@ -323,7 +329,7 @@ fun GenerateButton(
                 Runtime.getRuntime().exec(
                     "cmd.exe /c cd ${exportDir.path} && start ${exeFix.name}",
                     null,
-                    File(CharacterSync.rootDir.path)
+                    File(Sync.rootDir.path)
                 )
             }
         }.invokeOnCompletion { loading = false }
