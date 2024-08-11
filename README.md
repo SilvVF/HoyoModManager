@@ -1,11 +1,10 @@
-This is a Kotlin Multiplatform project targeting Desktop.
+Skin mod manager for Hoyo games and Wuthering Waves.
 
-* `/composeApp` is for code that will be shared across your Compose Multiplatform applications.
-  It contains several subfolders:
-  - `commonMain` is for code that’s common for all targets.
-  - Other folders are for Kotlin code that will be compiled for only the platform indicated in the folder name.
-    For example, if you want to use Apple’s CoreCrypto for the iOS part of your Kotlin app,
-    `iosMain` would be the right folder for such calls.
+* supports direct downloads from game banana.
+* create and load playlists.
+* runs skin fix exe when regenerating if it exists in the mod folder.
 
-
-Learn more about [Kotlin Multiplatform](https://www.jetbrains.com/help/kotlin-multiplatform-dev/get-started.html)…
+![image](https://github.com/user-attachments/assets/c8c6d0b3-04ea-40a0-a72c-b0e84303bc9c)
+![image](https://github.com/user-attachments/assets/f6166c68-f418-423e-bd36-0f26f02c2c15)
+![image](https://github.com/user-attachments/assets/b19d1bc0-79e9-4da7-add8-ebcb6c12f022)
+![image](https://github.com/user-attachments/assets/ee9c80bd-d2ff-483f-8403-546f8d263911)
