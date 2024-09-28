@@ -1,5 +1,7 @@
 Skin mod manager for Hoyo games and Wuthering Waves.
 
+Better version => https://github.com/SilvVF/HoyoModManagerGo
+
 * supports direct downloads from game banana.
 * create and load playlists.
 * runs skin fix exe when regenerating if it exists in the mod folder.
